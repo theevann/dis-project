@@ -7,13 +7,14 @@
 #include <webots/gps.h>
 #include <webots/accelerometer.h>
 #include <webots/position_sensor.h>
+#include <webots/emitter.h>
 
 #include "trajectories.h"
 #include "odometry.h"
 
 
 #define VERBOSE_ENC false  // Print encoder values
-#define VERBOSE_ACC true  // Print accelerometer values
+#define VERBOSE_ACC false  // Print accelerometer values
 #define VERBOSE_GPS false  // Print gps values
 
 
@@ -40,6 +41,7 @@ WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
+WbDeviceTag emitter;		
 
 
 void init_devices(int ts)
@@ -61,6 +63,8 @@ void init_devices(int ts)
     wb_motor_set_position(dev_right_motor, INFINITY);
     wb_motor_set_velocity(dev_left_motor, 0.0);
     wb_motor_set_velocity(dev_right_motor, 0.0);
+    
+    emitter = wb_robot_get_device("emitter");
 }
 
 
@@ -107,6 +111,14 @@ void update_pos_gps(position_t *pos) {
         printf("GPS : %g %g %g\n", pos->x, pos->y, pos->heading);
 }
 
+void send_position(position_t pos) {
+          char buffer[255];	// Buffer for sending data
+	
+	// Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it                   		
+	sprintf(buffer,"%f#%f#%f",pos.x,pos.y,pos.heading); 
+	wb_emitter_send(emitter,buffer,strlen(buffer));	
+}
+
 
 int main()
 {
@@ -127,6 +139,9 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         update_pos_gps(&pos);
+        
+        // Send the estimated position to the supervisor for metric computation
+        send_position(pos);
 
         // Use one of the two trajectories.
         trajectory_1(dev_left_motor, dev_right_motor);

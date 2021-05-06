@@ -5,7 +5,7 @@ sceneTreePerspectives: 000000ff0000000100000002000000c0000000fc01000000060100000
 maximizedDockId: -1
 centralWidgetVisible: 1
 orthographicViewHeight: 1
-textFiles: 0 "controllers/localization_controller/localization_controller.c" "controllers/localization_controller/trajectories.c" "controllers/localization_controller/odometry.c" "controllers/localization_controller/odometry.h"
+textFiles: 4 "controllers/localization_controller/localization_controller.c" "controllers/localization_controller/trajectories.c" "controllers/localization_controller/odometry.c" "controllers/localization_controller/odometry.h" "controllers/supervisor/supervisor.c"
 globalOptionalRendering: AllBoundingObjects
 consoles: Console:All:All
 renderingDevicePerspectives: e-puck:camera;1;0.820513;0;0

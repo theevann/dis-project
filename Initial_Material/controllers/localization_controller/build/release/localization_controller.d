@@ -6,4 +6,5 @@ build/release/localization_controller.o: localization_controller.c \
  C:\Users\Nicolas.DESKTOP-VQRDK4S\AppData\Local\Programs\Webots/include/controller/c/webots/gps.h \
  C:\Users\Nicolas.DESKTOP-VQRDK4S\AppData\Local\Programs\Webots/include/controller/c/webots/accelerometer.h \
  C:\Users\Nicolas.DESKTOP-VQRDK4S\AppData\Local\Programs\Webots/include/controller/c/webots/position_sensor.h \
+ C:\Users\Nicolas.DESKTOP-VQRDK4S\AppData\Local\Programs\Webots/include/controller/c/webots/emitter.h \
  trajectories.h odometry.h
