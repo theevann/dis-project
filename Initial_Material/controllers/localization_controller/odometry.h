@@ -11,7 +11,7 @@ typedef struct
 } position_t;
 
 void update_pos_odo_enc(position_t* pos, double Aleft_enc, double Aright_enc);
-void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3], double acc_mean[3]);
+void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3], double acc_mean[3], double Dleft_enc, double Dright_enc);
 void init_odometry(int time_step);
 
 #endif

@@ -19,7 +19,7 @@
 /*GLOBAL*/
 static double T;
 
-void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3], double acc_mean[3])
+void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3], double acc_mean[3], double Dleft_enc, double Dright_enc)
 {
 	double acc_wx = acc[1] - acc_mean[1];
 	double acc_wy = -(acc[0] - acc_mean[0]);
@@ -29,6 +29,12 @@ void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3],
 
 	pos->x = pos->x + speed->x * T;
 	pos->y = pos->y + speed->y * T;
+	
+	//  Compute heading with encoders
+           Dleft_enc  = Dleft_enc * WHEEL_RADIUS;
+	Dright_enc = Dright_enc * WHEEL_RADIUS;
+	double omega = (Dright_enc - Dleft_enc) / WHEEL_AXIS / T;
+	pos->heading = pos->heading + omega * T;
 
 	// printf("%f\n", wb_robot_get_time());
     // printf("ACC WYWX %f, %f \n\n", acc_wy, acc_wx);
@@ -56,7 +62,7 @@ void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3],
 void update_pos_odo_enc(position_t* pos, double Dleft_enc, double Dright_enc)
 {
 	//  Rad to meter : Convert the wheel encoders units into meters
-    Dleft_enc  = Dleft_enc * WHEEL_RADIUS;
+           Dleft_enc  = Dleft_enc * WHEEL_RADIUS;
 	Dright_enc = Dright_enc * WHEEL_RADIUS;
 
 	// Comupute speeds : Compute the forward and the rotational speed

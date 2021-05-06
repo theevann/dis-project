@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <webots/robot.h>
 #include <webots/motor.h>
@@ -12,8 +13,8 @@
 
 
 #define VERBOSE_ENC false  // Print encoder values
-#define VERBOSE_ACC false  // Print accelerometer values
-#define VERBOSE_GPS true  // Print gps values
+#define VERBOSE_ACC true  // Print accelerometer values
+#define VERBOSE_GPS false  // Print gps values
 
 
 typedef struct
@@ -31,7 +32,7 @@ typedef struct
 
 static measurement_t meas;
 static position_t pos, speed;
-const position_t initial_pos = { -2.9, 0., 0. };
+const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -116,6 +117,7 @@ int main()
 
     while (wb_robot_step(time_step) != -1)
     {
+        
         // READ SENSORS
         controller_get_encoder();
         controller_get_acc();
@@ -123,7 +125,7 @@ int main()
 
         // UPDATE POSITION ESTIMATION
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean);
+        // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         update_pos_gps(&pos);
 
         // Use one of the two trajectories.
