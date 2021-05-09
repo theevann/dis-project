@@ -15,7 +15,7 @@
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
-#define VERBOSE_GPS false  // Print gps values
+#define VERBOSE_GPS true  // Print gps values
 
 
 typedef struct
@@ -34,6 +34,7 @@ typedef struct
 static measurement_t meas;
 static position_t pos, speed;
 const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
+double last_gps_time_sec = 0.0f;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -92,20 +93,27 @@ void controller_get_acc()
 
 void controller_get_gps()
 {
-    memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
-    memcpy(meas.gps, wb_gps_get_values(dev_gps), sizeof(meas.gps));
+    double time_now_s = wb_robot_get_time();
 
-    if (VERBOSE_GPS)
-        printf("ROBOT absolute gps : %g %g %g\n", meas.gps[0], meas.gps[1], meas.gps[2]);
+    if (time_now_s - last_gps_time_sec > 1) {
+        last_gps_time_sec = time_now_s;
+        memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
+        memcpy(meas.gps, wb_gps_get_values(dev_gps), sizeof(meas.gps));
+        
+        if (VERBOSE_GPS)
+            printf("ROBOT absolute gps : %g %g %g\n", meas.gps[0], meas.gps[1], meas.gps[2]);
+    }
 }
 
 
 void update_pos_gps(position_t *pos) {
-    pos->x = meas.gps[0] - initial_pos.x;
-    pos->y = initial_pos.y - meas.gps[2];
+    double time_now_s = wb_robot_get_time();
+    double delta_x =   meas.gps[0] - meas.prev_gps[0];
+    double delta_y = -(meas.gps[2] - meas.prev_gps[2]);
 
-    // ADD extrapolation !
-    // ADD heading
+    pos->x =   meas.gps[0] - initial_pos.x  + (time_now_s - last_gps_time_sec) * delta_x;
+    pos->y = -(meas.gps[2] + initial_pos.y) + (time_now_s - last_gps_time_sec) * delta_y;
+    pos-> heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
         printf("GPS : %g %g %g\n", pos->x, pos->y, pos->heading);

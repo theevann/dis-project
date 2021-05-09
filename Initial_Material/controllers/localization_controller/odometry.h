@@ -5,9 +5,9 @@
 
 typedef struct 
 {
-  double x;
-  double y;
-  double heading;
+    double x;
+    double y;
+    double heading;
 } position_t;
 
 void update_pos_odo_enc(position_t* pos, double Aleft_enc, double Aright_enc);
