@@ -106,25 +106,28 @@ void controller_get_gps()
 }
 
 
-void update_pos_gps(position_t *pos) {
+void update_pos_gps(position_t *pos)
+{
     double time_now_s = wb_robot_get_time();
     double delta_x =   meas.gps[0] - meas.prev_gps[0];
     double delta_y = -(meas.gps[2] - meas.prev_gps[2]);
 
     pos->x =   meas.gps[0] - initial_pos.x  + (time_now_s - last_gps_time_sec) * delta_x;
-    pos->y = -(meas.gps[2] + initial_pos.y) + (time_now_s - last_gps_time_sec) * delta_y;
+    pos->y = -(meas.gps[2] - initial_pos.y) + (time_now_s - last_gps_time_sec) * delta_y;
     pos-> heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
         printf("GPS : %g %g %g\n", pos->x, pos->y, pos->heading);
 }
 
-void send_position(position_t pos) {
-          char buffer[255];	// Buffer for sending data
-	
-	// Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it                   		
-	sprintf(buffer,"%f#%f#%f",pos.x,pos.y,pos.heading); 
-	wb_emitter_send(emitter,buffer,strlen(buffer));	
+
+void send_position(position_t pos)
+{
+    char buffer[255]; // Buffer for sending data
+
+    // Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it
+    sprintf(buffer, "%g#%g#%g", pos.x, pos.y, pos.heading);
+    wb_emitter_send(emitter, buffer, strlen(buffer));
 }
 
 
