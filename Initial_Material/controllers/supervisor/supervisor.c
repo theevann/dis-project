@@ -16,7 +16,10 @@
 #include <webots/receiver.h>
 #include <webots/supervisor.h>
 
-#define TASK "localization"
+#include "../localization_controller/odometry.h"
+
+#define TASK 0                              // Tasks: 0 is localization, 1 is flocking, 2 is formation control
+#define VERBOSE_ERR false                 // print error on each timestep
 
 WbNodeRef rob;		           // Robot node
 WbFieldRef rob_trans;	                      // Robots translation fields
@@ -24,9 +27,12 @@ WbFieldRef rob_rotation;	           // Robots rotation fields
 WbDeviceTag receiver;			// Single receiver
 
 static int time_step;
-static int t;
+static float t = 0.0;
 float loc_abs[3];		// Aboslute Location of the robot
 float loc_est[3];               // Estimated position
+bool saved = false ;
+float metric = 0.0;
+const position_t initial_pos = { -2.9, 0., -M_PI/2 };
 
 
 /*
@@ -50,36 +56,13 @@ void init_super(void) {
 }
 
 
-/*
- * Compute performance metric.
- 
-void compute_fitness(float* fit_c, float* fit_o) {
-	*fit_c = 0; *fit_o = 0;
-	// Compute performance indices
-	// Based on distance of the robots compared to the threshold and the deviation from the perfect angle towards
-	// the migration goal
-	float angle_diff;
-	int i; int j;
-	for (i=0;i<FLOCK_SIZE;i++) {
-		for (j=i+1;j<FLOCK_SIZE;j++) {	
-			// Distance measure for each pair ob robots
-			*fit_c += fabs(sqrtf(powf(loc[i][0]-loc[j][0],2)+powf(loc[i][1]-loc[j][1],2))-RULE1_THRESHOLD*2);
-		}
-
-		// Angle measure for each robot
-		angle_diff = fabsf(loc[i][2]-orient_migr);
-		*fit_o += angle_diff > M_PI ? 2*M_PI-angle_diff : angle_diff;
-	}
-	*fit_c /= FLOCK_SIZE*(FLOCK_SIZE+1)/2;
-	*fit_o /= FLOCK_SIZE;
-}
-*/
 void get_absolute_position(void) {
             
            // Get data
 	loc_abs[0] = wb_supervisor_field_get_sf_vec3f(rob_trans)[0]; // X
 	loc_abs[1] = wb_supervisor_field_get_sf_vec3f(rob_trans)[2]; // Z
-	loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3]; // THETA 			
+	loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3]; // THETA 		
+	// printf("Absolute position is x: %f, y: %f, theta: %f\n",loc_abs[0],loc_abs[1],loc_abs[2]);
 }
 
 void get_info(void) {
@@ -94,9 +77,42 @@ void get_info(void) {
 
 }
 
-void compute_metric(void) { 
-          printf("Estimated position is x: %f, y: %f, theta: %f\n",loc_est[0],loc_est[1],loc_est[2]);
+// TO DO: add sending 0 from GPS when it is nan !
 
+void compute_metric(void) { 
+          // Position sent from robot
+          // printf("Estimated position is x: %f, y: %f, theta: %f\n",loc_est[0],loc_est[1],loc_est[2]);
+          
+          // Compute the metric for the localization task
+          if (TASK == 0) {
+              if (t < 115.0) {
+                  float error;
+                  error = sqrt(pow((loc_abs[0] - loc_est[0] - initial_pos.x), 2) + pow((loc_abs[1] + loc_est[1] - initial_pos.y), 2));
+                  if (error == error) { 
+                      metric += error ;
+                  }
+                  if (VERBOSE_ERR) {
+                      printf("Error: %f\n", error);
+                  }
+              }
+              else if ( t > 115.0 && saved == false ) {
+                  printf("Localization metric: %f\n", metric);
+                  FILE * fp;
+                  fp = fopen ("..\\..\\metric_scores\\localization.txt","w");
+                  fprintf (fp, "Localization metric score: %f\n",metric);
+                  fclose (fp);
+                  printf("Metric saved to localization.txt\n");
+                  saved = true ;
+              }
+              else {
+                  }
+           }
+           else if (TASK == 1) {
+               printf("Flocking metric not implemented yet\n");
+           }
+           else if (TASK == 2) {
+               printf("Formation control metric not implemented yet\n");
+           }
 }
 
 /*
@@ -120,6 +136,7 @@ int main() {
 		compute_metric();
 		
 		wb_robot_step(time_step);
-                      t += time_step;
+                      t += (float)time_step/1000 ;
+                      // printf("t = %f\n", t);
 	}
 }
