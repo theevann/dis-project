@@ -1,3 +1,5 @@
 **/build/
 *.exe
 *.wbproj
+**/.vs/
+**/.vscode/
