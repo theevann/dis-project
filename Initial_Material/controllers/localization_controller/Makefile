@@ -49,6 +49,7 @@
 ### if your program needs additional libraries:
 ### INCLUDE = -I"/my_library_path/include"
 ### LIBRARIES = -L"/path/to/my/library" -lmy_library -lmy_other_library
+CFLAGS = -Wno-comment -Wno-unused-variable
 INCLUDE = -I"../include"
 LIBRARIES = -L"../lib" -lgsl -lgslcblas -lm
 ###
