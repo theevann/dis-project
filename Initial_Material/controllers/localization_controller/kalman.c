@@ -60,19 +60,18 @@ void init_kalman(float initial_x, float initial_y) {
 }
 
 void update_pos_kalman(position_t* pos, float acc[2], float meas_val[2], bool meas_true) {
-
     // TO DO: do computations with linear algebra library or with defined functions
     // Be careful with size of state ( use transpose ? )
     // Update state with motion model
-    float acc_in[2][1] = {{acc[0]},
-                          {acc[1]}};
-    state = A*prev_state + B*acc_in;
-    Cov = A*prev_Cov*transpose(A) + R*dt;
+    // float acc_in[2][1] = {{acc[0]},
+    //                       {acc[1]}};
+    // state = A*prev_state + B*acc_in;
+    // Cov = A*prev_Cov*transpose(A) + R*dt;
     
-    // Compute correction if the measurement is not extrapolated
-    if (meas_true) {
-        K = Cov * transpose(C) * inv(C * Cov * transpose(C) + Q);
-        state = state + K * ( z - C * state);
-        Cov = (I - K * C) * Cov;
-    }
+    // // Compute correction if the measurement is not extrapolated
+    // if (meas_true) {
+    //     K = Cov * transpose(C) * inv(C * Cov * transpose(C) + Q);
+    //     state = state + K * ( z - C * state);
+    //     Cov = (I - K * C) * Cov;
+    // }
 }
