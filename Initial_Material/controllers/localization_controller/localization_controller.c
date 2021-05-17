@@ -12,6 +12,8 @@
 #include "trajectories.h"
 #include "odometry.h"
 
+#include <gsl/gsl_linalg.h>
+
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
@@ -44,6 +46,49 @@ WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
 WbDeviceTag emitter;		
 
+
+void test_gsl() {
+    double A_data[] = {
+        0.57092943, 0.00313503, 0.88069151, 0.39626474,
+        0.33336008, 0.01876333, 0.12228647, 0.40085702,
+        0.55534451, 0.54090141, 0.85848041, 0.62154911,
+        0.64111484, 0.8892682 , 0.58922332, 0.32858322
+    };
+
+    double b_data[] = {
+        1.5426693 , 0.74961678, 2.21431998, 2.14989419
+    };
+
+    // Access the above C arrays through GSL views
+    gsl_matrix_view A = gsl_matrix_view_array(A_data, 4, 4);
+    gsl_vector_view b = gsl_vector_view_array(b_data, 4);
+
+    // Print the values of A and b using GSL print functions
+    printf("A = \n");
+    gsl_matrix_fprintf (stdout, &A.matrix, "%lf");
+
+    printf("\nb = \n");
+    gsl_vector_fprintf (stdout, &b.vector, "%lf");
+
+    // Allocate memory for the solution vector x and the permutation perm:
+    gsl_vector *x = gsl_vector_alloc (4);
+    gsl_permutation *perm = gsl_permutation_alloc (4);
+
+    // Decompose A into the LU form:
+    int signum;
+    gsl_linalg_LU_decomp (&A.matrix, perm, &signum);
+
+    // Solve the linear system
+    gsl_linalg_LU_solve (&A.matrix, perm, &b.vector, x);
+
+    // Print the solution
+    printf("\nx = \n");
+    gsl_vector_fprintf (stdout, x, "%lf");
+
+    // Release the memory previously allocated for x and perm
+    gsl_vector_free(x);
+    gsl_permutation_free(perm);
+}
 
 void init_devices(int ts)
 {
@@ -138,6 +183,8 @@ int main()
     init_devices(time_step);
     init_odometry(time_step);
 
+    test_gsl();
+
     while (wb_robot_step(time_step) != -1)
     {
         
@@ -149,7 +196,7 @@ int main()
         // UPDATE POSITION ESTIMATION
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        update_pos_gps(&pos);
+        // update_pos_gps(&pos);
         
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);
