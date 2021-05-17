@@ -11,6 +11,7 @@
 
 #include "trajectories.h"
 #include "odometry.h"
+#include "kalman.h"
 
 #include <gsl/gsl_linalg.h>
 
@@ -20,7 +21,7 @@
 #define VERBOSE_GPS true  // Print gps values
 
 
-typedef struct
+typedef struct 
 {
     double prev_gps[3];
     double gps[3];
@@ -30,6 +31,7 @@ typedef struct
     double left_enc;
     double prev_right_enc;
     double right_enc;
+    bool gps_true;
 } measurement_t;
 
 
@@ -144,9 +146,13 @@ void controller_get_gps()
         last_gps_time_sec = time_now_s;
         memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
         memcpy(meas.gps, wb_gps_get_values(dev_gps), sizeof(meas.gps));
+        meas->gps_true = true;
         
         if (VERBOSE_GPS)
             printf("ROBOT absolute gps : %g %g %g\n", meas.gps[0], meas.gps[1], meas.gps[2]);
+    }
+    else {
+        meas->gps_true = false;
     }
 }
 
@@ -182,6 +188,7 @@ int main()
     int time_step = wb_robot_get_basic_time_step();
     init_devices(time_step);
     init_odometry(time_step);
+    init_kalman(initial_pos.x, initial_pos.y);
 
     test_gsl();
 
@@ -197,6 +204,7 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
+        update_pos_kalman(&pos, meas.acc, meas.gps, meas.gps_true);
         
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);

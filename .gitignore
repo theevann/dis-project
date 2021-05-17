@@ -1,4 +1,5 @@
 **/build/
 *.exe
 *.wbproj
-Initial_Material/controllers/localization_controller/localization_controller
+**/.vs/
+**/.vscode/
