@@ -13,9 +13,6 @@
 #include "odometry.h"
 #include "kalman.h"
 
-#include <gsl/gsl_linalg.h>
-
-
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
 #define VERBOSE_GPS true  // Print gps values
@@ -39,6 +36,7 @@ static measurement_t meas;
 static position_t pos, speed;
 const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
 double last_gps_time_sec = 0.0f;
+bool init_gps = false;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -48,6 +46,7 @@ WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
 WbDeviceTag emitter;		
 
+/**
 
 void test_gsl() {
     double A_data[] = {
@@ -91,6 +90,9 @@ void test_gsl() {
     gsl_vector_free(x);
     gsl_permutation_free(perm);
 }
+
+/**/
+
 
 void init_devices(int ts)
 {
@@ -141,8 +143,16 @@ void controller_get_acc()
 void controller_get_gps()
 {
     double time_now_s = wb_robot_get_time();
+    meas.gps_true = false;
 
-    if (time_now_s - last_gps_time_sec > 1) {
+    if (!init_gps) {
+        meas.gps[0] = initial_pos.x;
+        meas.gps[1] = 0;
+        meas.gps[2] = -initial_pos.y;
+        memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
+        meas.gps_true = true;
+        init_gps = true;
+    } else if (time_now_s - last_gps_time_sec > 1) {
         last_gps_time_sec = time_now_s;
         memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
         memcpy(meas.gps, wb_gps_get_values(dev_gps), sizeof(meas.gps));
@@ -151,9 +161,7 @@ void controller_get_gps()
         if (VERBOSE_GPS)
             printf("ROBOT absolute gps : %g %g %g\n", meas.gps[0], meas.gps[1], meas.gps[2]);
     }
-    else {
-        meas.gps_true = false;
-    }
+    
 }
 
 
@@ -168,7 +176,7 @@ void update_pos_gps(position_t *pos)
     pos-> heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
-        printf("GPS : %g %g %g\n", pos->x, pos->y, pos->heading);
+        printf("GPS Relative est.: %g %g %g\n", pos->x, pos->y, pos->heading);
 }
 
 
@@ -190,11 +198,10 @@ int main()
     init_odometry(time_step);
     init_kalman(initial_pos.x, initial_pos.y);
 
-    test_gsl();
-
     while (wb_robot_step(time_step) != -1)
     {
-        
+        printf("\n \n");
+        printf("\nNEW TIMESTEP\n");
         // READ SENSORS
         controller_get_encoder();
         controller_get_acc();
@@ -204,7 +211,8 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
-        // update_pos_kalman(&pos, meas.acc, meas.gps, meas.gps_true);
+        double meas_gps[2] = {meas.gps[0] - initial_pos.x, -meas.gps[2] + initial_pos.y};
+        update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
         
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);

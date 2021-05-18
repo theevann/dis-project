@@ -29,6 +29,10 @@ void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3],
 
 	pos->x = pos->x + speed->x * T;
 	pos->y = pos->y + speed->y * T;
+
+	// printf("\nAdd in x: %g * %g = %g\n", speed->x, T, speed->x * T);
+	// printf("\nAdd in vx: %g * %g = %g\n", acc_wx, T, acc_wx * T);
+	// printf("\nEST. vx: %g\n", speed->x);
 	
 	//  Compute heading with encoders
     Dleft_enc  = Dleft_enc * WHEEL_RADIUS;
@@ -36,10 +40,12 @@ void update_pos_odo_acc(position_t* pos, position_t* speed, const double acc[3],
 	double omega = (Dright_enc - Dleft_enc) / WHEEL_AXIS / T;
 	pos->heading = pos->heading + omega * T;
 
+
 	// printf("%g\n", wb_robot_get_time());
     // printf("ACC WYWX %g, %g \n\n", acc_wy, acc_wx);
     // printf("ACC CURR %g, %g \n\n", acc[0], acc[1]);
     // printf("ACC MEAN %g, %g \n\n", acc_mean[0], acc_mean[1]);
+
 
 	// KEEP TRACK OF ACCELEROMETER BIAS
 	// if (acc_mean[0] == 0 && acc_mean[1] == 0) {

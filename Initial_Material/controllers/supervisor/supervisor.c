@@ -59,10 +59,13 @@ void init_super(void)
 void get_absolute_position(void)
 {
     // Get data
-    loc_abs[0] = wb_supervisor_field_get_sf_vec3f(rob_trans)[0];       // X
-    loc_abs[1] = wb_supervisor_field_get_sf_vec3f(rob_trans)[2];       // Z
-    loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3]; // THETA
-    // printf("Absolute position is x: %f, y: %f, theta: %f\n",loc_abs[0],loc_abs[1],loc_abs[2]);
+    loc_abs[0] = wb_supervisor_field_get_sf_vec3f(rob_trans)[0];        // X
+    loc_abs[1] = -wb_supervisor_field_get_sf_vec3f(rob_trans)[2];       // Z
+    loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3];  // THETA
+
+    // printf("(GT) Absolute position is x: %f, y: %f, theta: %f\n",loc_abs[0],loc_abs[1],loc_abs[2]);
+    printf("(GT) Relative position is x: %f, y: %f, theta: %f\n",loc_abs[0]-initial_pos.x,loc_abs[1]-initial_pos.y,loc_abs[2]-initial_pos.heading);
+    // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
 }
 
 void get_info(void)
@@ -91,7 +94,7 @@ void compute_metric(void)
         if (t < 115.0)
         {
             float error;
-            error = sqrt(pow((loc_abs[0] - loc_est[0] - initial_pos.x), 2) + pow((loc_abs[1] + loc_est[1] - initial_pos.y), 2));
+            error = sqrt(pow((loc_abs[0] - loc_est[0] - initial_pos.x), 2) + pow((loc_abs[1] - loc_est[1] - initial_pos.y), 2));
             if (error == error)
             {
                 metric += error;
