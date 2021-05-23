@@ -34,9 +34,9 @@ typedef struct
 
 static measurement_t meas;
 static position_t pos, speed;
-const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
+const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position in webots referential: theta is -pi/2, y axis is reversed
 double last_gps_time_sec = 0.0f;
-bool init_gps = false;
+bool gps_initialised = false;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -93,6 +93,10 @@ void test_gsl() {
 
 /**/
 
+void init_pos(position_t *pos)
+{
+    memcpy(pos, &initial_pos, sizeof(initial_pos));
+}
 
 void init_devices(int ts)
 {
@@ -145,13 +149,13 @@ void controller_get_gps()
     double time_now_s = wb_robot_get_time();
     meas.gps_true = false;
 
-    if (!init_gps) {
+    if (!gps_initialised) {
         meas.gps[0] = initial_pos.x;
         meas.gps[1] = 0;
-        meas.gps[2] = -initial_pos.y;
+        meas.gps[2] = initial_pos.y;
         memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
         meas.gps_true = true;
-        init_gps = true;
+        gps_initialised = true;
     } else if (time_now_s - last_gps_time_sec > 1) {
         last_gps_time_sec = time_now_s;
         memcpy(meas.prev_gps, meas.gps, sizeof(meas.gps));
@@ -171,8 +175,8 @@ void update_pos_gps(position_t *pos)
     double delta_x =   meas.gps[0] - meas.prev_gps[0];
     double delta_y = -(meas.gps[2] - meas.prev_gps[2]);
 
-    pos->x =   meas.gps[0] - initial_pos.x  + (time_now_s - last_gps_time_sec) * delta_x;
-    pos->y = -(meas.gps[2] - initial_pos.y) + (time_now_s - last_gps_time_sec) * delta_y;
+    pos->x =  meas.gps[0] + (time_now_s - last_gps_time_sec) * delta_x;
+    pos->y = -meas.gps[2] + (time_now_s - last_gps_time_sec) * delta_y;
     pos-> heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
@@ -194,9 +198,10 @@ int main()
 {
     wb_robot_init();
     int time_step = wb_robot_get_basic_time_step();
+    init_pos(&pos);
     init_devices(time_step);
     init_odometry(time_step);
-    init_kalman(initial_pos.x, initial_pos.y);
+    init_kalman(&initial_pos);
 
     while (wb_robot_step(time_step) != -1)
     {
@@ -211,7 +216,7 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
-        double meas_gps[2] = {meas.gps[0] - initial_pos.x, -meas.gps[2] + initial_pos.y};
+        double meas_gps[2] = {meas.gps[0], -meas.gps[2]};
         update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
         
         // Send the estimated position to the supervisor for metric computation

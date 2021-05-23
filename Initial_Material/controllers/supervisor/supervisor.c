@@ -34,6 +34,7 @@ bool saved = false;
 float metric = 0.0;
 const position_t initial_pos = {-2.9, 0., -M_PI / 2};
 
+
 /*
  * Initialize supervisor for getting robot absolute position
  */
@@ -41,8 +42,8 @@ void init_super(void)
 {
     wb_robot_init();
 
+    t = 0.0;
     time_step = wb_robot_get_basic_time_step();
-    t = 0;
 
     receiver = wb_robot_get_device("receiver");
     if (receiver == 0)
@@ -59,12 +60,11 @@ void init_super(void)
 void get_absolute_position(void)
 {
     // Get data
-    loc_abs[0] = wb_supervisor_field_get_sf_vec3f(rob_trans)[0];        // X
-    loc_abs[1] = -wb_supervisor_field_get_sf_vec3f(rob_trans)[2];       // Z
-    loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3];  // THETA
+    loc_abs[0] = wb_supervisor_field_get_sf_vec3f(rob_trans)[0];       // X
+    loc_abs[1] = -wb_supervisor_field_get_sf_vec3f(rob_trans)[2];      // Z
+    loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3]; // THETA
 
-    // printf("(GT) Absolute position is x: %f, y: %f, theta: %f\n",loc_abs[0],loc_abs[1],loc_abs[2]);
-    printf("(GT) Relative position is x: %f, y: %f, theta: %f\n",loc_abs[0]-initial_pos.x,loc_abs[1]-initial_pos.y,loc_abs[2]-initial_pos.heading);
+    printf("(GT) Position is x: %f, y: %f, theta: %f\n", loc_abs[0], loc_abs[1], loc_abs[2]);
     // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
 }
 
@@ -94,7 +94,7 @@ void compute_metric(void)
         if (t < 115.0)
         {
             float error;
-            error = sqrt(pow((loc_abs[0] - loc_est[0] - initial_pos.x), 2) + pow((loc_abs[1] - loc_est[1] - initial_pos.y), 2));
+            error = sqrt(pow((loc_abs[0] - loc_est[0]), 2) + pow((loc_abs[1] - loc_est[1]), 2));
             if (error == error)
             {
                 metric += error;
