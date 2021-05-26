@@ -10,11 +10,13 @@
 #include <gsl/gsl_blas.h>
 
 #include "odometry.h"
+#include "kalman.h"
 
 #define STATE_DIM 4
 #define MEAS_DIM 2
 #define CONTROL_DIM 2
 #define VERBOSE_KALMAN_1 true
+
 
 // define constants
 // double R_data[] = {0.05, 0, 0, 0, // Input covariance matrix
@@ -36,20 +38,15 @@ double Q_data[] = {.01, 0, // Measurement covariance matrix
 
 double dt;
 
+
 // define variables 
 gsl_vector* state;
 gsl_matrix* Cov;
-gsl_matrix* prev_Cov;
-
 gsl_matrix* A;
 gsl_matrix* B;
 
 
-gsl_matrix* array2matrix(double* array, int size_1, int size_2);
-gsl_matrix *invert_matrix(gsl_matrix *matrix, int size);
-
-
-void init_kalman(double initial_x, double initial_y) {
+void init_kalman(const position_t* initial_pos) {
     dt = wb_robot_get_basic_time_step() / 1000.;
     printf("\ndt %f\n", dt);
 
@@ -68,8 +65,7 @@ void init_kalman(double initial_x, double initial_y) {
                          0, 0, 0.001, 0,
                          0, 0, 0, 0.001};
 
-    // double init_state[] = {initial_x, initial_y, 0, 0};
-    double init_state[] = {0, 0, 0, 0};
+    double init_state[] = {initial_pos->x, initial_pos->y, 0, 0};
 
     A = array2matrix(A_init, STATE_DIM, STATE_DIM);
     B = array2matrix(B_init, STATE_DIM, CONTROL_DIM);

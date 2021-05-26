@@ -53,8 +53,8 @@ void init_super(void)
 {
     wb_robot_init();
 
+    t = 0.0;
     time_step = wb_robot_get_basic_time_step();
-    t = 0;
 
     receiver = wb_robot_get_device("receiver");
     if (receiver == 0)
@@ -83,11 +83,12 @@ void get_absolute_position(void)
     }
     
     if (VERBOSE_SUPPOS) {
-      int robot_print = 0;
-      // printf("(GT) Absolute position is x: %f, y: %f, theta: %f\n",loc_abs[0],loc_abs[1],loc_abs[2]);
-      printf("(GT) Relative position of rob%d is x: %f, y: %f, theta: %f\n",robot_print+1, loc_abs[robot_print][0]-initial_pos.x,loc_abs[robot_print][1]-initial_pos.y,loc_abs[robot_print][2]-initial_pos.heading);
-      // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
+        int robot_print = 0;
+        printf("(GT) Position of robot%d is x: %f, y: %f, theta: %f\n", robot_print+1, loc_abs[robot_print][0], loc_abs[robot_print][1], loc_abs[robot_print][2]);
+        // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
       }
+
+    
 }
 
 void get_info(void)
@@ -123,7 +124,7 @@ void compute_metric(void)
             if (t < 115.0)
             {
                 float error;
-                error = sqrt(pow((loc_abs[0][0] - loc_est[0][0] - initial_pos.x), 2) + pow((loc_abs[0][1] - loc_est[0][1] - initial_pos.y), 2));
+                error = sqrt(pow((loc_abs[0][0] - loc_est[0][0]), 2) + pow((loc_abs[0][1] - loc_est[0][1]), 2));
                 if (error == error)
                 {
                     metric_loc += error;
