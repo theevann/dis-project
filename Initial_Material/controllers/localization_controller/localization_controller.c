@@ -15,8 +15,11 @@
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
-#define VERBOSE_GPS true  // Print gps values
+#define VERBOSE_GPS false  // Print gps values
 
+#define ACC_CAL false      // Enable accelerometer calibration ( robot does not move for 5 seconds )
+
+#define ROBOTS_N 1
 
 typedef struct 
 {
@@ -31,12 +34,14 @@ typedef struct
     bool gps_true;
 } measurement_t;
 
-
 static measurement_t meas;
 static position_t pos, speed;
 const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
+static int robot_id;
 double last_gps_time_sec = 0.0f;
 bool init_gps = false;
+static double acc_mean_sum[2] = {0., 0.};
+static double acc_cal_tsum = 0;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -96,6 +101,10 @@ void test_gsl() {
 
 void init_devices(int ts)
 {
+    char* robot_name; 
+	robot_name=(char*) wb_robot_get_name(); 
+    sscanf(robot_name,"ROBOT%d",&robot_id);
+    
     dev_gps = wb_robot_get_device("gps");
     wb_gps_enable(dev_gps, 1000);
 
@@ -128,6 +137,20 @@ void controller_get_encoder()
 
     if (VERBOSE_ENC)
         printf("ROBOT enc : %g %g\n", meas.left_enc, meas.right_enc);
+}
+
+
+void calibrate_acc() 
+{    
+    double time_now_s = wb_robot_get_time();
+    if (time_now_s < 5 && time_now_s > 0.1) {
+        acc_cal_tsum += 1;
+        acc_mean_sum[0] += meas.acc[0]; 
+        acc_mean_sum[1] += meas.acc[1]; 
+        meas.acc_mean[0] = acc_mean_sum[0] / acc_cal_tsum;
+        meas.acc_mean[1] = acc_mean_sum[1] / acc_cal_tsum;
+        printf("Acc mean: %g %g %g\n", meas.acc_mean[0], meas.acc_mean[1], meas.acc_mean[2]);
+    }
 }
 
 
@@ -185,9 +208,12 @@ void send_position(position_t pos)
     char buffer[255]; // Buffer for sending data
 
     // Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it
-    sprintf(buffer, "%g#%g#%g", pos.x, pos.y, pos.heading);
+    sprintf(buffer, "%d#%g#%g#%g", robot_id, pos.x, pos.y, pos.heading);
     wb_emitter_send(emitter, buffer, strlen(buffer));
 }
+
+
+
 
 
 int main()
@@ -207,18 +233,23 @@ int main()
         controller_get_acc();
         controller_get_gps();
 
+        // CALIBRATE ACCELEROMETER IF ENABLED
+        if (ACC_CAL) {
+            calibrate_acc();
+        }
+
         // UPDATE POSITION ESTIMATION
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
+        update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
-        double meas_gps[2] = {meas.gps[0] - initial_pos.x, -meas.gps[2] + initial_pos.y};
-        update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
+        // double meas_gps[2] = {meas.gps[0] - initial_pos.x, -meas.gps[2] + initial_pos.y};
+        // update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
         
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);
 
         // Use one of the two trajectories.
-        trajectory_1(dev_left_motor, dev_right_motor);
-        // trajectory_2(dev_left_motor, dev_right_motor);
+        trajectory_1(dev_left_motor, dev_right_motor, ACC_CAL);
+        // trajectory_2(dev_left_motor, dev_right_motor, ACC_CAL);
     }
 }

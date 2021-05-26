@@ -3,3 +3,4 @@
 *.wbproj
 **/.vs/
 **/.vscode/
+Initial_Material/controllers/localization_controller/localization_controller.h

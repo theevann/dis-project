@@ -5,6 +5,7 @@
 #include <webots/robot.h>
 
 #include "odometry.h"
+#include "localization_controller.h"
 
 
 /*CONSTANTES*/
@@ -14,7 +15,7 @@
 
 /*VERBOSE_FLAGS*/
 #define VERBOSE_ODO_ENC true     	// Print odometry values computed with wheel encoders
-#define VERBOSE_ODO_ACC true    	// Print odometry values computed with accelerometer
+#define VERBOSE_ODO_ACC false    	// Print odometry values computed with accelerometer
 
 /*GLOBAL*/
 static double T;
