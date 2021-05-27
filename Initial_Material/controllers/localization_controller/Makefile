@@ -47,11 +47,11 @@
 ###
 ### ---- Linked libraries ----
 ### if your program needs additional libraries:
-### INCLUDE = -I"/my_library_path/include"
+###INCLUDE = -I"/my_library_path/include"
 ### LIBRARIES = -L"/path/to/my/library" -lmy_library -lmy_other_library
 CFLAGS = -Wno-comment -Wno-unused-variable
 INCLUDE = -I"../include"
-LIBRARIES = -L"../lib" -lgsl -lgslcblas -lm
+LIBRARIES = -L"/usr/lib" -lgsl -lgslcblas -lm
 ###
 ### ---- Linking options ----
 ### if special linking flags are needed:
@@ -69,8 +69,8 @@ LIBRARIES = -L"../lib" -lgsl -lgslcblas -lm
 ###-----------------------------------------------------------------------------
 
 ### Do not modify: this includes Webots global Makefile.include
-C_SOURCES = kalman.c odometry.c localization_controller.c trajectories.c 
+C_SOURCES = odometry.c localization_controller.c trajectories.c kalman.c
 null :=
 space := $(null) $(null)
-WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))
+WEBOTS_HOME_PATH=$(subst $(space),\,$(strip $(subst \,/,$(WEBOTS_HOME))))
 include $(WEBOTS_HOME_PATH)/resources/Makefile.include
