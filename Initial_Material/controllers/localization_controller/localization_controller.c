@@ -12,12 +12,8 @@
 
 #include "trajectories.h"
 #include "odometry.h"
-<<<<<<< HEAD
-//#include "kalman.h"
-=======
 #include "kalman_acc.h"
 #include "kalman_vel.h"
->>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
@@ -232,14 +228,6 @@ int main()
     init_pos(&pos);
     init_devices(time_step);
     init_odometry(time_step);
-<<<<<<< HEAD
-    //init_kalman(&initial_pos);
-
-    while (wb_robot_step(time_step) != -1)
-    {
-        //printf("\n \n");
-        //printf("\nNEW TIMESTEP\n");
-=======
 
     if (KALMAN_ACC)
         init_kalman_acc(&initial_pos);
@@ -251,7 +239,6 @@ int main()
         printf("\n \n");
         printf("\nNEW TIMESTEP\n");
 
->>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
         // READ SENSORS
         controller_get_encoder();
         controller_get_acc();
@@ -266,11 +253,6 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
-<<<<<<< HEAD
-        double meas_gps[2] = {meas.gps[0], -meas.gps[2]};
-        //update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
-=======
->>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
         
         //*
         if (KALMAN_ACC) {

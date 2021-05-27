@@ -85,11 +85,10 @@ void get_absolute_position(void)
     if (VERBOSE_SUPPOS) {
         int robot_print = 0;
         printf("(GT) Position of robot%d is x: %f, y: %f, theta: %f\n", robot_print+1, loc_abs[robot_print][0], loc_abs[robot_print][1], loc_abs[robot_print][2]);
-        // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
       }
 
-    printf("(GT) Position is x: %f, y: %f, theta: %f\n", loc_abs[0], loc_abs[1], loc_abs[2]);
-    printf("(GT) vx: %g, vy: %g\n", wb_supervisor_node_get_velocity(rob)[0], -wb_supervisor_node_get_velocity(rob)[2]);
+    printf("(GT) Position is x: %f, y: %f, theta: %f\n", loc_abs[0][0], loc_abs[0][1], loc_abs[0][2]);
+    printf("(GT) vx: %g, vy: %g\n", wb_supervisor_node_get_velocity(rob[0])[0], -wb_supervisor_node_get_velocity(rob[0])[2]);
 }
 
 void get_info(void)
@@ -194,9 +193,9 @@ void compute_metric(void)
             prev_fcenter[0] = flock_center[0];
             prev_fcenter[1] = flock_center[1];
             if (VERBOSE_METRIC)
-                {
-                    printf("Flocking Metric: %f\n", fit_step);
-                }
+            {
+                printf("Flocking Metric: %f\n", fit_step);
+            }
         }
         else if (t > 115.0 && saved == false)
         {
@@ -217,20 +216,21 @@ void compute_metric(void)
     {
         if (t < 115.0)
         {
-            float x_sum=0;
-            float y_sum=0;
+            float x_sum = 0;
+            float y_sum = 0;
             float flock_center[2];
-            float fit_d=0;
-            float fit_v=0;
+            float fit_d = 0;
+            float fit_v = 0;
             double fit_step;
             int i;
             float rob_formation_pos[2];
-            for (i=0;i<ROBOTS_N;i++) {
+            for (i = 0; i < ROBOTS_N; i++)
+            {
                 // Calculate each robot's goal position on this timestep
                 rob_formation_pos[0] = loc_abs[LEADER_ID][0] + rel_formation_pos[i][0];
                 rob_formation_pos[1] = loc_abs[LEADER_ID][1] + rel_formation_pos[i][1];
                 // Distance measure to its goal position for each robot
-                fit_d += sqrtf(powf(loc_abs[i][0]-rob_formation_pos[0],2)+powf(loc_abs[i][1]-rob_formation_pos[1],2));
+                fit_d += sqrtf(powf(loc_abs[i][0] - rob_formation_pos[0], 2) + powf(loc_abs[i][1] - rob_formation_pos[1], 2));
                 // Calculation of flock center
                 x_sum += loc_abs[i][0];
                 y_sum += loc_abs[i][1];
@@ -238,20 +238,22 @@ void compute_metric(void)
             // Speed measure
             flock_center[0] = x_sum / ROBOTS_N;
             flock_center[1] = y_sum / ROBOTS_N;
-            if (prev_fcenter[0] == -1000 && prev_fcenter[1] == -1000) {
+            if (prev_fcenter[0] == -1000 && prev_fcenter[1] == -1000)
+            {
                 prev_fcenter[0] = flock_center[0];
-                prev_fcenter[1] = flock_center[1];}
-            fit_v = sqrtf(powf(flock_center[0]-prev_fcenter[0],2)+powf(flock_center[1]-prev_fcenter[1],2)) / D_max_form;
+                prev_fcenter[1] = flock_center[1];
+            }
+            fit_v = sqrtf(powf(flock_center[0] - prev_fcenter[0], 2) + powf(flock_center[1] - prev_fcenter[1], 2)) / D_max_form;
             // Total metric on this timestep
-            fit_step = fit_v / (1 + 1/(ROBOTS_N) * fit_d);
+            fit_step = fit_v / (1 + 1 / (ROBOTS_N)*fit_d);
             metric_form += fit_step;
             metric_stepcount++;
             prev_fcenter[0] = flock_center[0];
             prev_fcenter[1] = flock_center[1];
             if (VERBOSE_METRIC)
-                {
-                    printf("Formation Metric: %f\n", fit_step);
-                }
+            {
+                printf("Formation Metric: %f\n", fit_step);
+            }
         }
         else if (t > 115.0 && saved == false)
         {
