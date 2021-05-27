@@ -5,8 +5,6 @@
 #include <webots/robot.h>
 
 #include "odometry.h"
-#include "localization_controller.h"
-
 
 /*CONSTANTES*/
 #define WHEEL_AXIS 		0.057 		// Distance between the two wheels in meter
