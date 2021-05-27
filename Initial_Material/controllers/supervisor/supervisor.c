@@ -65,7 +65,7 @@ void get_absolute_position(void)
     loc_abs[2] = wb_supervisor_field_get_sf_rotation(rob_rotation)[3]; // THETA
 
     printf("(GT) Position is x: %f, y: %f, theta: %f\n", loc_abs[0], loc_abs[1], loc_abs[2]);
-    // printf("(GT) vx: %f\n", wb_supervisor_node_get_velocity(rob)[0]);
+    printf("(GT) vx: %g, vy: %g\n", wb_supervisor_node_get_velocity(rob)[0], -wb_supervisor_node_get_velocity(rob)[2]);
 }
 
 void get_info(void)

@@ -11,12 +11,14 @@
 
 #include "trajectories.h"
 #include "odometry.h"
-#include "kalman.h"
+#include "kalman_acc.h"
+#include "kalman_vel.h"
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
 #define VERBOSE_GPS true  // Print gps values
 
+#define KALMAN_ACC false
 
 typedef struct 
 {
@@ -98,6 +100,7 @@ void init_pos(position_t *pos)
     memcpy(pos, &initial_pos, sizeof(initial_pos));
 }
 
+
 void init_devices(int ts)
 {
     dev_gps = wb_robot_get_device("gps");
@@ -177,7 +180,7 @@ void update_pos_gps(position_t *pos)
 
     pos->x =  meas.gps[0] + (time_now_s - last_gps_time_sec) * delta_x;
     pos->y = -meas.gps[2] + (time_now_s - last_gps_time_sec) * delta_y;
-    pos-> heading = atan2(delta_y, delta_x);
+    pos->heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
         printf("GPS Relative est.: %g %g %g\n", pos->x, pos->y, pos->heading);
@@ -201,12 +204,17 @@ int main()
     init_pos(&pos);
     init_devices(time_step);
     init_odometry(time_step);
-    init_kalman(&initial_pos);
+
+    if (KALMAN_ACC)
+        init_kalman_acc(&initial_pos);
+    else
+        init_kalman_vel(&initial_pos);
 
     while (wb_robot_step(time_step) != -1)
     {
         printf("\n \n");
         printf("\nNEW TIMESTEP\n");
+
         // READ SENSORS
         controller_get_encoder();
         controller_get_acc();
@@ -216,9 +224,17 @@ int main()
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
-        double meas_gps[2] = {meas.gps[0], -meas.gps[2]};
-        update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
         
+        //*
+        if (KALMAN_ACC) {
+            update_pos_kalman_acc(&pos, meas.acc, meas.gps, meas.gps_true);
+            update_heading_enc(&(pos.heading), meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
+        } else {
+            double velocities[] = {wb_motor_get_velocity(dev_right_motor), wb_motor_get_velocity(dev_left_motor)};
+            update_pos_kalman_vel(&pos, velocities, meas.gps, meas.gps_true);
+        }
+        //*/
+
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);
 
