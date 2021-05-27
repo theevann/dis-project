@@ -69,7 +69,11 @@ LIBRARIES = -L"/usr/lib" -lgsl -lgslcblas -lm
 ###-----------------------------------------------------------------------------
 
 ### Do not modify: this includes Webots global Makefile.include
+<<<<<<< HEAD
 C_SOURCES = odometry.c localization_controller.c trajectories.c kalman.c
+=======
+C_SOURCES = gsl_helper.c kalman_variable.c kalman_vel.c kalman_acc.c odometry.c localization_controller.c trajectories.c 
+>>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\,$(strip $(subst \,/,$(WEBOTS_HOME))))

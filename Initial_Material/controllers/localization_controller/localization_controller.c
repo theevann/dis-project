@@ -9,14 +9,24 @@
 #include <webots/position_sensor.h>
 #include <webots/emitter.h>
 
+
 #include "trajectories.h"
 #include "odometry.h"
+<<<<<<< HEAD
 //#include "kalman.h"
+=======
+#include "kalman_acc.h"
+#include "kalman_vel.h"
+>>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
 
 #define VERBOSE_ENC false  // Print encoder values
 #define VERBOSE_ACC false  // Print accelerometer values
-#define VERBOSE_GPS true  // Print gps values
+#define VERBOSE_GPS false  // Print gps values
 
+#define KALMAN_ACC false
+#define ACC_CAL false      // Enable accelerometer calibration ( robot does not move for 5 seconds )
+
+#define ROBOTS_N 1
 
 typedef struct 
 {
@@ -31,12 +41,14 @@ typedef struct
     bool gps_true;
 } measurement_t;
 
-
 static measurement_t meas;
 static position_t pos, speed;
-const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position in webots referential: theta is -pi/2, y axis is reversed
+const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
+static int robot_id;
 double last_gps_time_sec = 0.0f;
 bool gps_initialised = false;
+static double acc_mean_sum[2] = {0., 0.};
+static double acc_cal_tsum = 0;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -98,8 +110,13 @@ void init_pos(position_t *pos)
     memcpy(pos, &initial_pos, sizeof(initial_pos));
 }
 
+
 void init_devices(int ts)
 {
+    char* robot_name; 
+	robot_name=(char*) wb_robot_get_name(); 
+    sscanf(robot_name,"ROBOT%d",&robot_id);
+    
     dev_gps = wb_robot_get_device("gps");
     wb_gps_enable(dev_gps, 1000);
 
@@ -132,6 +149,20 @@ void controller_get_encoder()
 
     if (VERBOSE_ENC)
         printf("ROBOT enc : %g %g\n", meas.left_enc, meas.right_enc);
+}
+
+
+void calibrate_acc() 
+{    
+    double time_now_s = wb_robot_get_time();
+    if (time_now_s < 5 && time_now_s > 0.1) {
+        acc_cal_tsum += 1;
+        acc_mean_sum[0] += meas.acc[0]; 
+        acc_mean_sum[1] += meas.acc[1]; 
+        meas.acc_mean[0] = acc_mean_sum[0] / acc_cal_tsum;
+        meas.acc_mean[1] = acc_mean_sum[1] / acc_cal_tsum;
+        printf("Acc mean: %g %g %g\n", meas.acc_mean[0], meas.acc_mean[1], meas.acc_mean[2]);
+    }
 }
 
 
@@ -177,7 +208,7 @@ void update_pos_gps(position_t *pos)
 
     pos->x =  meas.gps[0] + (time_now_s - last_gps_time_sec) * delta_x;
     pos->y = -meas.gps[2] + (time_now_s - last_gps_time_sec) * delta_y;
-    pos-> heading = atan2(delta_y, delta_x);
+    pos->heading = atan2(delta_y, delta_x);
 
     if (VERBOSE_GPS)
         printf("GPS Relative est.: %g %g %g\n", pos->x, pos->y, pos->heading);
@@ -189,7 +220,7 @@ void send_position(position_t pos)
     char buffer[255]; // Buffer for sending data
 
     // Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it
-    sprintf(buffer, "%g#%g#%g", pos.x, pos.y, pos.heading);
+    sprintf(buffer, "%d#%g#%g#%g", robot_id, pos.x, pos.y, pos.heading);
     wb_emitter_send(emitter, buffer, strlen(buffer));
 }
 
@@ -201,29 +232,61 @@ int main()
     init_pos(&pos);
     init_devices(time_step);
     init_odometry(time_step);
+<<<<<<< HEAD
     //init_kalman(&initial_pos);
 
     while (wb_robot_step(time_step) != -1)
     {
         //printf("\n \n");
         //printf("\nNEW TIMESTEP\n");
+=======
+
+    if (KALMAN_ACC)
+        init_kalman_acc(&initial_pos);
+    else
+        init_kalman_vel(&initial_pos);
+
+    while (wb_robot_step(time_step) != -1)
+    {
+        printf("\n \n");
+        printf("\nNEW TIMESTEP\n");
+
+>>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
         // READ SENSORS
         controller_get_encoder();
         controller_get_acc();
         controller_get_gps();
 
+        // CALIBRATE ACCELEROMETER IF ENABLED
+        if (ACC_CAL) {
+            calibrate_acc();
+        }
+
         // UPDATE POSITION ESTIMATION
         // update_pos_odo_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_odo_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
         // update_pos_gps(&pos);
+<<<<<<< HEAD
         double meas_gps[2] = {meas.gps[0], -meas.gps[2]};
         //update_pos_kalman(&pos, meas.acc, meas_gps, meas.gps_true);
+=======
+>>>>>>> 262749fdfd6fee8bd39aba4ff1cb214656c21bcc
         
+        //*
+        if (KALMAN_ACC) {
+            update_pos_kalman_acc(&pos, meas.acc, meas.gps, meas.gps_true);
+            update_heading_enc(&(pos.heading), meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
+        } else {
+            double velocities[] = {wb_motor_get_velocity(dev_right_motor), wb_motor_get_velocity(dev_left_motor)};
+            update_pos_kalman_vel(&pos, velocities, meas.gps, meas.gps_true);
+        }
+        //*/
+
         // Send the estimated position to the supervisor for metric computation
         send_position(pos);
 
         // Use one of the two trajectories.
-        trajectory_1(dev_left_motor, dev_right_motor);
-        // trajectory_2(dev_left_motor, dev_right_motor);
+        trajectory_1(dev_left_motor, dev_right_motor, ACC_CAL);
+        // trajectory_2(dev_left_motor, dev_right_motor, ACC_CAL);
     }
 }
