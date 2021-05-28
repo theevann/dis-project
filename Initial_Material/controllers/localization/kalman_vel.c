@@ -83,10 +83,11 @@ void update_pos_kalman_vel(position_t* pos, double vel_data[2], double gps[3], b
     kalman_prediction_step_vel(pos, vel_data);
     if (meas_true) kalman_correction_step_vel(pos, gps_data);
     
-    if (VERBOSE_KALMAN)
+    if (VERBOSE_KALMAN) {
 		printf("(EST) Kalman with velocity : vx=%g vy=%g \n", state->data[2], state->data[3]);
-	printf("(EST) Kalman with velocity : x=%g y=%g th=%g\n", pos->x, pos->y, (pos->heading));
+	    printf("(EST) Kalman with velocity : x=%g y=%g th=%g\n", pos->x, pos->y, (pos->heading));
 		// printf("(EST) Kalman with velocity : %g %g %g\n", pos->x, pos->y, RAD2DEG(pos->heading));
+    }
 }
 
 
