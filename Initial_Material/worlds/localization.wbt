@@ -110,7 +110,7 @@ DEF SUPERVISOR Robot {
   controller "supervisor"
   supervisor TRUE
 }
-DEF ROBOT1 Robot {
+DEF epuck0 Robot {
   translation -2.9 0 0
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
@@ -1452,7 +1452,7 @@ DEF ROBOT1 Robot {
       rotation 0 0 1 -1.57
     }
   ]
-  name "e-puck"
+  name "epuck0"
   model "GCtronic e-puck"
   description "Educational robot designed at EPFL"
   boundingObject Group {

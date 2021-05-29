@@ -17,7 +17,7 @@
 /*VERBOSE_FLAGS*/
 #define VERBOSE_ENC false     	// Print odometry values computed with wheel encoders
 #define VERBOSE_ACC false    	// Print odometry values computed with accelerometer
-#define VERBOSE_GPS true    	// Print odometry values computed with accelerometer
+#define VERBOSE_GPS false    	// Print odometry values computed with accelerometer
 
 /*GLOBAL*/
 static double T;

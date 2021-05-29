@@ -1,4 +1,4 @@
-#VRML_SIM R2019b utf8
+#VRML_SIM R2021a utf8
 WorldInfo {
   info [
     "Description"
@@ -6,6 +6,7 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
+  coordinateSystem "NUE"
 }
 Viewpoint {
   orientation -0.9931345111565514 -0.11262694456245013 -0.03160718444222321 1.03351
@@ -519,7 +520,11 @@ DEF rock Solid {
   }
 }
 DEF SUPERVISOR Robot {
-  controller ""
+  children [
+    Receiver {
+    }
+  ]
+  controller "supervisor"
   supervisor TRUE
 }
 DEF epuck0 Robot {
@@ -1852,7 +1857,6 @@ DEF epuck0 Robot {
       channel 1
     }
     DEF EPUCK_EMITTER Emitter {
-      channel 1
     }
     DEF EPUCK_SPEAKER Speaker {
     }
@@ -3234,7 +3238,6 @@ DEF epuck1 Robot {
       channel 1
     }
     DEF EPUCK_EMITTER Emitter {
-      channel 1
     }
     DEF EPUCK_SPEAKER Speaker {
     }
@@ -4616,7 +4619,6 @@ DEF epuck2 Robot {
       channel 1
     }
     DEF EPUCK_EMITTER Emitter {
-      channel 1
     }
     DEF EPUCK_SPEAKER Speaker {
     }
@@ -5998,7 +6000,6 @@ DEF epuck3 Robot {
       channel 1
     }
     DEF EPUCK_EMITTER Emitter {
-      channel 1
     }
     DEF EPUCK_SPEAKER Speaker {
     }
@@ -7380,7 +7381,6 @@ DEF epuck4 Robot {
       channel 1
     }
     DEF EPUCK_EMITTER Emitter {
-      channel 1
     }
     DEF EPUCK_SPEAKER Speaker {
     }

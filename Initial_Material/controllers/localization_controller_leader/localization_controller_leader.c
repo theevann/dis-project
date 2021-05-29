@@ -17,6 +17,10 @@
 #define VERBOSE_ACC false  // Print accelerometer values
 #define VERBOSE_GPS true  // Print gps values
 
+#define ACC_CAL false
+
+#define TRAJECTORY 1
+
 
 typedef struct 
 {
@@ -38,6 +42,7 @@ const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position in we
 double last_gps_time_sec = 0.0f;
 bool gps_initialised = false;
 char* robot_name;
+static const int traj_form = TRAJECTORY; //included in .h file for supervisor to find termination criterion
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -233,7 +238,9 @@ int main()
         send_ping();
 
         // Use one of the two trajectories.
-        trajectory_1(dev_left_motor, dev_right_motor);
-        // trajectory_2(dev_left_motor, dev_right_motor);
+        if (TRAJECTORY == 1)
+            trajectory_1(dev_left_motor, dev_right_motor, ACC_CAL);
+        else if (TRAJECTORY == 2)
+            trajectory_2(dev_left_motor, dev_right_motor, ACC_CAL);
     }
 }

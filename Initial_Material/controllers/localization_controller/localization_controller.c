@@ -15,6 +15,7 @@
 #include "odometry.h"
 #include "kalman_acc.h"
 #include "kalman_vel.h"
+#include "localization_controller.h"
 
 
 // Choose a localisation technique
@@ -52,7 +53,7 @@ const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta
 static int robot_id;
 double last_gps_time_sec = 0.0f;
 int time_step;
-
+int traj_loc = TRAJECTORY; //included in .h file for supervisor to find termination criterion
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -81,7 +82,7 @@ void init_devices()
 {
     char* robot_name; 
 	robot_name=(char*) wb_robot_get_name(); 
-    sscanf(robot_name,"ROBOT%d",&robot_id);
+    sscanf(robot_name,"epuck%d",&robot_id);
     
     dev_gps = wb_robot_get_device("gps");
     wb_gps_enable(dev_gps, 1000);
@@ -121,6 +122,8 @@ int main()
     init_variables();
     init_devices();
     init_odometry(time_step);
+    
+    // printf("Localization traj: %d", traj_loc);
 
     if (KALMAN_ACC)
         init_kalman_acc(&initial_pos);
