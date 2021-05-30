@@ -148,37 +148,37 @@ void compute_metric(void)
     // Compute the metric for the localization task
     if (TASK == 0)
     {
-            if (t < end_crit)
-            {
-                int i;
-                for (i = 0; i < ROBOTS_N; i++)
-                    {
-                    float error;
-                    error = sqrt(pow((loc_abs[0][0] - loc_est[0][0]), 2) + pow((loc_abs[0][1] - loc_est[0][1]), 2));
-                    if (error == error)
-                        metric_loc[i] += error;
-                    if (VERBOSE_METRIC)
-                    {
-                        printf("Localization error robot%d: %f\n", i, error);
-                    }
+        if (t < end_crit)
+        {
+            int i;
+            for (i = 0; i < ROBOTS_N; i++)
+                {
+                float error;
+                error = sqrt(pow((loc_abs[0][0] - loc_est[0][0]), 2) + pow((loc_abs[0][1] - loc_est[0][1]), 2));
+                if (error == error)
+                    metric_loc[i] += error;
+                if (VERBOSE_METRIC)
+                {
+                    printf("Localization error robot%d: %f\n", i, error);
                 }
             }
-            else if (t > end_crit && saved == false)
-            {
-                double metric_tot = 0;
-                int i;
-                for (i = 0; i < ROBOTS_N; i++) metric_tot += metric_loc[i];
-                metric_tot /= (float)ROBOTS_N;
-                printf("Localization metric %d robots: %f\n", ROBOTS_N, metric_tot);
-                FILE *fp;
-                fp = fopen("..\\..\\metric_scores\\localization.txt", "w");
-                fprintf(fp, "Localization metric score with %d robots: %f\n", ROBOTS_N, metric_tot);
-                fclose(fp);
-                printf("Metric saved to localization.txt\n");
-                saved = true;
-            }
-            else {
-                printf("Error in localization metric \n");
+        }
+        else if (t > end_crit && saved == false)
+        {
+            double metric_tot = 0;
+            int i;
+            for (i = 0; i < ROBOTS_N; i++) metric_tot += metric_loc[i];
+            metric_tot /= (float)ROBOTS_N;
+            printf("Localization metric %d robots: %f\n", ROBOTS_N, metric_tot);
+            FILE *fp;
+            fp = fopen("..\\..\\metric_scores\\localization.txt", "w");
+            fprintf(fp, "Localization metric score with %d robots: %f\n", ROBOTS_N, metric_tot);
+            fclose(fp);
+            printf("Metric saved to localization.txt\n");
+            saved = true;
+        }
+        else {
+            printf("Error in localization metric \n");
         }
     }
     else if (TASK == 1)
