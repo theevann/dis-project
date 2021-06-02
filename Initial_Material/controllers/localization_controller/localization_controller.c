@@ -11,27 +11,27 @@
 #include <webots/emitter.h>
 
 
+#include "../const.h"
 #include "trajectories.h"
 #include "odometry.h"
 #include "kalman_acc.h"
 #include "kalman_vel.h"
-#include "localization_controller.h"
 
 
 // Choose a localisation technique
-#define ENCODER false
-#define ACCELEROMETER false
-#define GPS true
-#define KALMAN_ACC false
-#define KALMAN_VEL false
+#define ENCODER 1
+#define ACCELEROMETER 2
+#define GPS 3
+#define KALMAN_ACC 4
+#define KALMAN_VEL 5
+
+#define LOCALIZATION_METHOD GPS
 
 
 // Calibrate Accelerometer
 #define ACC_CAL false      // Enable accelerometer calibration (robot does not move for TIME_CAL seconds)
 #define TIME_CAL 5         // Accelerometer calibration time (robot does not move for TIME_CAL seconds)
 
-#define ROBOTS_N 1
-#define TRAJECTORY 2
 
 
 typedef struct 
@@ -49,11 +49,10 @@ typedef struct
 
 static measurement_t meas;
 static position_t pos, speed;
-const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // absolute position theta is -pi/2
-static int robot_id;
+const position_t initial_pos = { -2.9, 0., -M_PI/2 }; // POSITION IN OUR REFERENTIAL (Y IS REVERSED Z)
 double last_gps_time_sec = 0.0f;
+static int robot_id;
 int time_step;
-int traj_loc = TRAJECTORY; //included in .h file for supervisor to find termination criterion
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -72,18 +71,17 @@ void init_variables()
     memcpy(&pos, &initial_pos, sizeof(initial_pos));
 
     // Initialize the gps measurements
-    double gps_init[] = {initial_pos.x, 0, initial_pos.y};
+    double gps_init[] = {initial_pos.x, 0, -initial_pos.y};
     memcpy(meas.gps, gps_init, sizeof(meas.gps));
     memcpy(meas.prev_gps, gps_init, sizeof(meas.gps));
 }
 
-
 void init_devices()
 {
-    char* robot_name; 
-	robot_name=(char*) wb_robot_get_name(); 
-    sscanf(robot_name,"epuck%d",&robot_id);
-    
+    char *robot_name;
+    robot_name = (char *)wb_robot_get_name();
+    sscanf(robot_name, "epuck%d", &robot_id);
+
     dev_gps = wb_robot_get_device("gps");
     wb_gps_enable(dev_gps, 1000);
 
@@ -101,10 +99,9 @@ void init_devices()
     wb_motor_set_position(dev_right_motor, INFINITY);
     wb_motor_set_velocity(dev_left_motor, 0.0);
     wb_motor_set_velocity(dev_right_motor, 0.0);
-    
+
     emitter = wb_robot_get_device("emitter");
 }
-
 
 void send_position(position_t pos)
 {
@@ -123,17 +120,15 @@ int main()
     init_devices();
     init_odometry(time_step);
     
-    // printf("Localization traj: %d", traj_loc);
-
-    if (KALMAN_ACC)
+    if (LOCALIZATION_METHOD == KALMAN_ACC)
         init_kalman_acc(&initial_pos);
-    else if(KALMAN_VEL)
+    else if(LOCALIZATION_METHOD == KALMAN_VEL)
         init_kalman_vel(&initial_pos);
 
     while (wb_robot_step(time_step) != -1)
     {
-        printf("\n \n");
-        printf("\nNEW TIMESTEP\n");
+        // printf("\n \n");
+        // printf("\nNEW TIMESTEP\n");
 
         // READ SENSORS
         get_encoder(dev_left_encoder, dev_right_encoder, &(meas.prev_left_enc), &(meas.prev_right_enc), &(meas.left_enc), &(meas.right_enc));
@@ -148,16 +143,16 @@ int main()
         }
 
         // UPDATE POSITION ESTIMATION
-        if (ENCODER)
+        if (LOCALIZATION_METHOD == ENCODER)
             update_pos_enc(&pos, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        else if (ACCELEROMETER && !calibrating) {
+        else if (LOCALIZATION_METHOD == ACCELEROMETER && !calibrating) {
             update_pos_acc(&pos, &speed, meas.acc, meas.acc_mean, meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        } else if (GPS) {
+        } else if (LOCALIZATION_METHOD == GPS) {
             update_pos_gps(&pos, &last_gps_time_sec, meas.prev_gps, meas.gps);
-        } else if (KALMAN_ACC && !calibrating) {
+        } else if (LOCALIZATION_METHOD == KALMAN_ACC && !calibrating) {
             update_pos_kalman_acc(&pos, meas.acc, meas.gps, meas.gps_true);
             update_heading_enc(&(pos.heading), meas.left_enc - meas.prev_left_enc, meas.right_enc - meas.prev_right_enc);
-        } else if (KALMAN_VEL) {
+        } else if (LOCALIZATION_METHOD == KALMAN_VEL) {
             double velocities[] = {wb_motor_get_velocity(dev_right_motor), wb_motor_get_velocity(dev_left_motor)};
             update_pos_kalman_vel(&pos, velocities, meas.gps, meas.gps_true);
         }

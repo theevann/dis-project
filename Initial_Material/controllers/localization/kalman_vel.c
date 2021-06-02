@@ -17,7 +17,7 @@
 #define MEAS_DIM 2
 #define CONTROL_DIM 2
 
-#define VERBOSE_KALMAN true
+#define VERBOSE_KALMAN false
 
 #define WHEEL_AXIS 		0.057 		// Distance between the two wheels in meter
 #define WHEEL_RADIUS 	0.0205		// Radius of the wheel in meter
@@ -78,15 +78,14 @@ void init_kalman_vel(const position_t* initial_pos)
 void update_pos_kalman_vel(position_t* pos, double vel_data[2], double gps[3], bool meas_true)
 {
     double gps_data[MEAS_DIM] = {gps[0], -gps[2]};
-    printf("velocities: %g %g \n", vel_data[0], vel_data[1]);
+    // printf("velocities: %g %g \n", vel_data[0], vel_data[1]);
 
     kalman_prediction_step_vel(pos, vel_data);
     if (meas_true) kalman_correction_step_vel(pos, gps_data);
     
     if (VERBOSE_KALMAN) {
-		printf("(EST) Kalman with velocity : vx=%g vy=%g \n", state->data[2], state->data[3]);
 	    printf("(EST) Kalman with velocity : x=%g y=%g th=%g\n", pos->x, pos->y, (pos->heading));
-		// printf("(EST) Kalman with velocity : %g %g %g\n", pos->x, pos->y, RAD2DEG(pos->heading));
+		// printf("(EST) Kalman with velocity : vx=%g vy=%g \n", state->data[2], state->data[3]);
     }
 }
 

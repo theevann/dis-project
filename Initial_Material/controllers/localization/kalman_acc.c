@@ -17,7 +17,7 @@
 #define MEAS_DIM 2
 #define CONTROL_DIM 2
 
-#define VERBOSE_KALMAN true
+#define VERBOSE_KALMAN false
 
 
 
