@@ -1,35 +1,25 @@
-
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-
-#include <webots/robot.h>
-#include <webots/motor.h>
-
-#include <gsl/gsl_blas.h>
-
-#include "odometry.h"
-#include "gsl_helper.h"
-#include "kalman_variable.h"
 #include "kalman_acc.h"
 
 #define STATE_DIM 4
 #define MEAS_DIM 2
 #define CONTROL_DIM 2
 
-#define VERBOSE_KALMAN false
-
-
 
 void init_kalman_acc(const position_t* initial_pos)
 {
-    init_kalman(initial_pos);
+    timestep = wb_robot_get_basic_time_step() / 1000.;
+
+    // Process matrix
+    double A_data[] = {1, 0, timestep, 0,
+                       0, 1, 0, timestep,
+                       0, 0, 1, 0,
+                       0, 0, 0, 1};
 
     // Control matrix
     double B_data[] = {0, 0,
                        0, 0,
-                       dt, 0,
-                       0, dt};
+                       timestep, 0,
+                       0, timestep};
 
     // Measurement model matrix
     double C_data[] = {1, 0, 0, 0,
@@ -39,22 +29,6 @@ void init_kalman_acc(const position_t* initial_pos)
     double Q_data[] = {.01, 0,
                        0, .01};
 
-    B = array2matrix(B_data, STATE_DIM, CONTROL_DIM);
-    C = array2matrix(C_data, MEAS_DIM, STATE_DIM);
-    Q = array2matrix(Q_data, MEAS_DIM, MEAS_DIM);
-
-}
-
-
-void init_kalman(const position_t* initial_pos) {
-    dt = wb_robot_get_basic_time_step() / 1000.;
-
-    // Process matrix
-    double A_data[] = {1, 0, dt, 0,
-                       0, 1, 0, dt,
-                       0, 0, 1, 0,
-                       0, 0, 0, 1};
-    
     // Input covariance matrix
     double R_data[] = {0.05, 0, 0, 0,
                        0, 0.05, 0, 0,
@@ -72,8 +46,11 @@ void init_kalman(const position_t* initial_pos) {
                          0, 0, 0, 0.001};
 
     A = array2matrix(A_data, STATE_DIM, STATE_DIM);
+    B = array2matrix(B_data, STATE_DIM, CONTROL_DIM);
     R = array2matrix(R_data, STATE_DIM, STATE_DIM);
-    gsl_matrix_scale(R, dt);
+    gsl_matrix_scale(R, timestep);
+    C = array2matrix(C_data, MEAS_DIM, STATE_DIM);
+    Q = array2matrix(Q_data, MEAS_DIM, MEAS_DIM);
 
     state = array2vector(state_init, STATE_DIM);
     cov = array2matrix(cov_init, STATE_DIM, STATE_DIM);
@@ -109,7 +86,7 @@ void kalman_prediction_step_acc(position_t* pos, double input_data[CONTROL_DIM])
     gsl_blas_dgemv(CblasNoTrans, 1.0, B, input, 1.0, state);
 
 
-    /*  1.2   cov = A * prev_cov * transpose(A) + R * dt  */
+    /*  1.2   cov = A * prev_cov * transpose(A) + R * timestep  */
     gsl_matrix* temp_cov = gsl_matrix_alloc(STATE_DIM, STATE_DIM);
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, A, cov, 0.0, temp_cov);
     gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, temp_cov, A, 0.0, cov);

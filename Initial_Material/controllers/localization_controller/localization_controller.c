@@ -12,6 +12,7 @@
 
 
 #include "../const.h"
+#include "../struct.h"
 #include "trajectories.h"
 #include "odometry.h"
 #include "kalman_acc.h"
@@ -32,20 +33,6 @@
 #define ACC_CAL false      // Enable accelerometer calibration (robot does not move for TIME_CAL seconds)
 #define TIME_CAL 5         // Accelerometer calibration time (robot does not move for TIME_CAL seconds)
 
-
-
-typedef struct 
-{
-    double prev_gps[3];
-    double gps[3];
-    double acc_mean[3];
-    double acc[3];
-    double prev_left_enc;
-    double left_enc;
-    double prev_right_enc;
-    double right_enc;
-    bool gps_true;
-} measurement_t;
 
 static measurement_t meas;
 static position_t pos, speed;

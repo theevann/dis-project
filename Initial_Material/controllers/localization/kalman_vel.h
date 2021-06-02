@@ -1,3 +1,18 @@
+
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
+#include <webots/robot.h>
+#include <webots/motor.h>
+
+#include <gsl/gsl_blas.h>
+
+#include "../const.h"
+#include "../struct.h"
+#include "gsl_helper.h"
+#include "kalman_variable.h"
+
 #ifndef KALMAN_VEL_H
 #define KALMAN_VEL_H
 

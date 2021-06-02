@@ -22,10 +22,6 @@
 #include "../localization/odometry.h"
 
 
-#define TASK -1 // Tasks: 0 is localization, 1 is flocking, 2 is formation control
-
-#define VERBOSE_SUPPOS false // print position from supervisor
-
 WbNodeRef rob[ROBOTS_N];           // Robot node
 WbFieldRef rob_trans[ROBOTS_N];    // Robots translation fields
 WbFieldRef rob_rotation[ROBOTS_N]; // Robots rotation fields
@@ -76,6 +72,7 @@ void init_super(void)
     }
 }
 
+
 void get_absolute_position(void)
 {
     // Get data
@@ -85,7 +82,7 @@ void get_absolute_position(void)
         loc_abs[i][1] = -wb_supervisor_field_get_sf_vec3f(rob_trans[i])[2];      // Z
         loc_abs[i][2] = wb_supervisor_field_get_sf_rotation(rob_rotation[i])[3]; // THETA
 
-        if (VERBOSE_SUPPOS)
+        if (SUPERVISOR_VERBOSE_POSITION)
         {
             printf("(GT) Position of robot%d is x: %f, y: %f, theta: %f\n", i, loc_abs[i][0], loc_abs[i][1], loc_abs[i][2]);
             // printf("(GT) RPosition of robot%d is x: %f, y: %f, theta: %f\n", i, loc_abs[i][0]+2.9, loc_abs[i][1], loc_abs[i][2]+M_PI/2);
@@ -95,6 +92,7 @@ void get_absolute_position(void)
     //printf("(GT) Position is x: %f, y: %f, theta: %f\n", loc_abs[0][0], loc_abs[0][1], loc_abs[0][2]);
     //printf("(GT) vx: %g, vy: %g\n", wb_supervisor_node_get_velocity(rob[0])[0], -wb_supervisor_node_get_velocity(rob[0])[2]);
 }
+
 
 void get_info(void)
 {
@@ -136,9 +134,6 @@ void update_metric(int task)
 }
 
 
-/*
- * Main function.
- */
 int main(void)
 {
     init_super();

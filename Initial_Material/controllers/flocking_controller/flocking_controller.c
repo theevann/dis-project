@@ -14,13 +14,14 @@
 #include <webots/receiver.h>
 
 
+#include "../struct.h"
 #include "../const.h"
 #include "odometry.h"
 #include "kalman_acc.h"
 #include "kalman_vel.h"
 
 
-// Choose a localisation technique
+// Choose a localization technique
 #define ENCODER 1
 #define ACCELEROMETER 2
 #define GPS 3
@@ -35,49 +36,19 @@
 #define TIME_CAL 5         // Accelerometer calibration time (robot does not move for TIME_CAL seconds)
 
 
-// ##### TO CLEANUP LATER
-#define sign(X) (2*(X >= 0) - 1)
-
-#define COHESION_WEIGHT 0.15 //0.6
-#define MIGRATION_WEIGHT 0.15
-#define DISPERSION_WEIGHT 0.4
-#define DISPERSION_THRESHOLD 0.2
-#define SPEED_MOMENTUM 0.9
-
-#define NB_SENSORS 8
-#define FLOCK_SIZE 5
-#define BIAS_SPEED 400
-#define MAX_SPEED 800
-#define MAX_SPEED_WEB 6.28  // Maximum speed webots
-#define AXLE_LENGTH 0.052	// Distance between wheels of robot (meters)
-#define EPS 0.0001	// Epsilon
-
-
+// For Obstacle Avoidance Behaviour
 double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
 double last_obstacle_avoidance = -100.;
+
+// For Flocking Behaviour
 position_t previous_speed = {0, 0, 0};
-// ##### END TO CLEANUP LATER
-
-
-typedef struct 
-{
-    double prev_gps[3];
-    double gps[3];
-    double acc_mean[3];
-    double acc[3];
-    double prev_left_enc;
-    double left_enc;
-    double prev_right_enc;
-    double right_enc;
-    bool gps_true;
-} measurement_t;
-
-static measurement_t meas;
-
-static position_t initial_pos, pos, speed;
 static position_t flock_prev_rpos[ROBOTS_N], flock_rpos[ROBOTS_N];
 
-const position_t all_initial_pos[ROBOTS_N] = {
+
+static measurement_t meas;
+static position_t initial_pos, pos, speed;
+
+const position_t all_initial_pos[] = {
     {-2.9, 0., -M_PI / 2},
     {-2.9, -0.1, -M_PI / 2},
     {-2.9, 0.1, -M_PI / 2},

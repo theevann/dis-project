@@ -1,14 +1,19 @@
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
+#include <webots/robot.h>
+#include <webots/position_sensor.h>
+#include <webots/accelerometer.h>
+#include <webots/gps.h>
+
+#include "../struct.h"
+#include "../const.h"
+
 #ifndef ODOMETRY_H
 #define ODOMETRY_H 
 
 #define RAD2DEG(X) X / M_PI * 180.0
-
-typedef struct 
-{
-    double x;
-    double y;
-    double heading;
-} position_t;
 
 void calibrate_acc(double* acc, double* acc_mean);
 void get_acc(WbDeviceTag device, double* acc);
