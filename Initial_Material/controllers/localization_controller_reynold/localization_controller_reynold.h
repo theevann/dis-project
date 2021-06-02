@@ -1,6 +1,0 @@
-#ifndef LOCALIZATION_CONTROLLER_REYNOLD_H
-#define LOCALIZATION_CONTROLLER_REYNOLD_H 
-
-float migr[2];
-
-#endif
