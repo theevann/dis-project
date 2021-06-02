@@ -1,7 +1,18 @@
-#define ROBOTS_N 1
+#include <math.h>
+#include "struct.h"
 
-#define TASK 0 // Tasks: 0 is localization, 1 is flocking, 2 is formation control
+#define TASK 1   // TASK: 0 is localization, 1 is flocking, 2 is formation control
+#define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing
 #define TRAJECTORY 1 // Tractectory used if task is localization
+
+
+#if WORLD == 1
+    #define ROBOTS_N 5
+    #define TIME_IN_OBSTACLE_AVOIDANCE 2
+#elif WORLD == 2
+    #define ROBOTS_N 10
+    #define TIME_IN_OBSTACLE_AVOIDANCE 1
+#endif
 
 
 /* ROBOT CONSTANTS */
@@ -28,17 +39,24 @@
 
 /* FLOCKING */
 #define FLOCK_SIZE 5
-#define MIGR_X 2        // -0.1
-#define MIGR_Y 0.5      //1.34     // SHOULD BE IN OUR REFERENTIAL: THE Y AXIS IS WEBOTS REVERSED Z AXIS
 
-#define D_FLOCK 0.15    // TO DEFINE: targeted flocking distance
-#define D_MAX_FLOCK 0.1 // TO DEFINE: maximum distance travelled in 1 timestep: timestep * maximum speed
+extern const position_t MIGR[];
+extern const position_t INIT_POS[];
 
-#define COHESION_WEIGHT 0.15 //0.6
+// #define COHESION_WEIGHT 0.2
+// #define MIGRATION_WEIGHT 0.2
+// #define DISPERSION_WEIGHT 0.4
+// #define DISPERSION_THRESHOLD 0.3
+// #define SPEED_MOMENTUM 0.9
+
+#define COHESION_WEIGHT 0.15
 #define MIGRATION_WEIGHT 0.15
 #define DISPERSION_WEIGHT 0.4
 #define DISPERSION_THRESHOLD 0.2
-#define SPEED_MOMENTUM 0.9
+#define SPEED_MOMENTUM 0.8
+
+#define D_FLOCK DISPERSION_THRESHOLD    // TO DEFINE: targeted flocking distance
+#define D_MAX_FLOCK 0.1 // TO DEFINE: maximum distance travelled in 1 timestep: timestep * maximum speed
 
 
 /* FORMATION */

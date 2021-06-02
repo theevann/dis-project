@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #ifndef STRUCT_H
 #define STRUCT_H 
 
