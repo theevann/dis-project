@@ -50,6 +50,7 @@
 #define MAX_SPEED 800
 #define MAX_SPEED_WEB 6.28  // Maximum speed webots
 #define AXLE_LENGTH 0.052	// Distance between wheels of robot (meters)
+#define EPS 0.0001	// Epsilon
 
 
 double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
@@ -74,7 +75,7 @@ typedef struct
 static measurement_t meas;
 
 static position_t initial_pos, pos, speed;
-static position_t flock_prev_pos[ROBOTS_N], flock_pos[ROBOTS_N];
+static position_t flock_prev_rpos[ROBOTS_N], flock_rpos[ROBOTS_N];
 
 const position_t all_initial_pos[ROBOTS_N] = {
     {-2.9, 0., -M_PI / 2},
@@ -160,17 +161,23 @@ void clamp(float *number, float limit)
 }
 
 
-float dist(float v1[2], float v2[2])
+double dist(double v1[2], double v2[2])
 {
     return sqrtf(powf(v1[0] - v2[0], 2) + powf(v1[1] - v2[1], 2));
 }
 
 
-float dist_pos(position_t pos_1, position_t pos_2)
+double dist_pos(position_t pos_1, position_t pos_2)
 {
-    float v_pos_1[2] = {pos_1.x, pos_1.y};
-    float v_pos_2[2] = {pos_2.x, pos_2.y};
+    double v_pos_1[2] = {pos_1.x, pos_1.y};
+    double v_pos_2[2] = {pos_2.x, pos_2.y};
     return dist(v_pos_1, v_pos_2);
+}
+
+
+double norm_pos(position_t pos)
+{
+    return sqrtf(powf(pos.x, 2) + powf(pos.y, 2));
 }
 
 
@@ -226,30 +233,34 @@ void reynolds(float* msl, float* msr)
 {
     position_t migr = {MIGR_X, MIGR_Y, 0};
 	position_t flock_pos_avg = {0, 0, 0};	 // Flock average positions
-	position_t dispersion = {0, 0, 0};	 // Flock average positions
+	position_t flock_rpos_avg = {0, 0, 0};	 // Flock average positions
+	position_t dispersion = {0, 0, 0}, cohesion = {0, 0, 0}, migration = {0, 0, 0};	 // Flock average positions
 	position_t new_speed = {0, 0, 0};	 // Flock average positions
 	// float flock_spd_avg[2] = {0, 0}; // Flock average speeds
 
-    float norm;
+    double norm;
 
 	for (int i = 0; i < FLOCK_SIZE; i++)
 	{
 		if (i == robot_flock_id)
 			continue;
 
-        flock_pos_avg.x += flock_pos[i].x;
-        flock_pos_avg.y += flock_pos[i].y;
+        flock_rpos_avg.x += flock_rpos[i].x;
+        flock_rpos_avg.y += flock_rpos[i].y;
         // flock_spd_avg.x += flock_spd[i][0];
         // flock_spd_avg.x += flock_spd[i][1];
 		
-        norm = dist_pos(pos, flock_pos[i]);
+        // Dispersion
+        norm = norm_pos(flock_rpos[i]);
         if (norm < DISPERSION_THRESHOLD)
         {
-            dispersion.x += norm * sign(pos.x - flock_pos[i].x) / (abs(pos.x - flock_pos[i].x) + 0.5);
-            dispersion.y += norm * sign(pos.y - flock_pos[i].y) / (abs(pos.y - flock_pos[i].y) + 0.5);
+            dispersion.x -= norm * sign(flock_rpos[i].x) / (abs(flock_rpos[i].x) + 0.5);
+            dispersion.y -= norm * sign(flock_rpos[i].y) / (abs(flock_rpos[i].y) + 0.5);
         }
 	}
 
+	flock_rpos_avg.x /= (FLOCK_SIZE - 1);
+	flock_rpos_avg.y /= (FLOCK_SIZE - 1);
 	flock_pos_avg.x /= (FLOCK_SIZE - 1);
 	flock_pos_avg.y /= (FLOCK_SIZE - 1);
 	// flock_spd_avg.x /= (FLOCK_SIZE - 1);
@@ -257,23 +268,20 @@ void reynolds(float* msl, float* msr)
 
 
     // Cohesion
-    norm = dist_pos(flock_pos_avg, pos);
-    new_speed.x += (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT;
-    new_speed.y += (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT;
-
-    if (robot_id == 10)
-        printf("_\nCohesion %f, %f\n", (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT, (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT);
-   
-
-	// Dispersion
-    new_speed.x += dispersion.x * DISPERSION_WEIGHT;
-    new_speed.y += dispersion.y * DISPERSION_WEIGHT;
+    norm = norm_pos(flock_rpos_avg) + EPS;
+    cohesion.x = flock_rpos_avg.x / norm;
+    cohesion.y = flock_rpos_avg.y / norm;
 
 
     // Migration
-    norm = dist_pos(migr, pos);
-    new_speed.x += (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT;
-    new_speed.y += (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT;
+    norm = dist_pos(migr, pos) + EPS;
+    migration.x = (MIGR_X - pos.x) / norm;
+    migration.y = (MIGR_Y - pos.y) / norm;
+
+
+    // Aggregate
+    new_speed.x = dispersion.x * DISPERSION_WEIGHT + cohesion.x * COHESION_WEIGHT + migration.x * MIGRATION_WEIGHT;
+    new_speed.y = dispersion.y * DISPERSION_WEIGHT + cohesion.y * COHESION_WEIGHT + migration.y * MIGRATION_WEIGHT;
 
 
     // Momentum (smoothen the trajectory)
@@ -285,8 +293,9 @@ void reynolds(float* msl, float* msr)
     vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y);
 
     if (robot_id == 10) {
+        printf("_\nCohesion %f, %f\n", cohesion.x * COHESION_WEIGHT, cohesion.y * COHESION_WEIGHT);
         printf("Dispersion %f, %f\n", dispersion.x * DISPERSION_WEIGHT, dispersion.y * DISPERSION_WEIGHT);
-        printf("Migration %f, %f\n", (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT, (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT);
+        printf("Migration %f, %f\n", migration.x * MIGRATION_WEIGHT, migration.y * MIGRATION_WEIGHT);
         printf("Reynold MSL: %f MSR: %f\n", *msl, *msr);
     }
 }
@@ -334,11 +343,11 @@ void receive_ping_messages()
         // printf("y %f, x %f\n", y, x);
 
         // Get position update
-        flock_prev_pos[sender_flock_id].x = flock_pos[sender_flock_id].x;
-        flock_prev_pos[sender_flock_id].y = flock_pos[sender_flock_id].y;
+        flock_prev_rpos[sender_flock_id].x = flock_rpos[sender_flock_id].x;
+        flock_prev_rpos[sender_flock_id].y = flock_rpos[sender_flock_id].y;
 
-        flock_pos[sender_flock_id].x = rx + pos.x;        // absolute x pos
-        flock_pos[sender_flock_id].y = ry + pos.y;        // absolute y pos
+        flock_rpos[sender_flock_id].x = rx;        // rel x pos
+        flock_rpos[sender_flock_id].y = ry;        // rel y pos
 
         // relative_speed[sender_id][0] = (1. / DELTA_T) * (flock_pos[sender_id].x - flock_prev_pos[sender_id].x);
         // relative_speed[sender_id][1] = (1. / DELTA_T) * (flock_pos[sender_id].y - flock_prev_pos[sender_id].y);
