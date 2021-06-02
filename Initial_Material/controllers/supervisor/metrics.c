@@ -180,7 +180,6 @@ void update_formation_metric(int end_crit, float loc_abs[ROBOTS_N][3])
 
 
 
-
 // HELPER FUNCTIONS
 
 

@@ -38,10 +38,11 @@
 // ##### TO CLEANUP LATER
 #define sign(X) (2*(X >= 0) - 1)
 
-#define COHESION_WEIGHT 0.15
-#define MIGR_WEIGHT 0.2
+#define COHESION_WEIGHT 0.15 //0.6
+#define MIGRATION_WEIGHT 0.15
 #define DISPERSION_WEIGHT 0.4
-#define DISPERSION_THRESHOLD 0.15
+#define DISPERSION_THRESHOLD 0.2
+#define SPEED_MOMENTUM 0.9
 
 #define NB_SENSORS 8
 #define FLOCK_SIZE 5
@@ -53,7 +54,7 @@
 
 double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
 double last_obstacle_avoidance = -100.;
-
+position_t previous_speed = {0, 0, 0};
 // ##### END TO CLEANUP LATER
 
 
@@ -223,12 +224,10 @@ void braitenberg(float* msl, float* msr)
 
 void reynolds(float* msl, float* msr)
 {
-    // vector_to_wheelspeed(msl, msr, MIGR_X - pos.x, MIGR_Y - pos.y);
-
     position_t migr = {MIGR_X, MIGR_Y, 0};
 	position_t flock_pos_avg = {0, 0, 0};	 // Flock average positions
 	position_t dispersion = {0, 0, 0};	 // Flock average positions
-	position_t speed = {0, 0, 0};	 // Flock average positions
+	position_t new_speed = {0, 0, 0};	 // Flock average positions
 	// float flock_spd_avg[2] = {0, 0}; // Flock average speeds
 
     float norm;
@@ -259,28 +258,35 @@ void reynolds(float* msl, float* msr)
 
     // Cohesion
     norm = dist_pos(flock_pos_avg, pos);
-    speed.x += (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT;
-    speed.y += (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT;
+    new_speed.x += (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT;
+    new_speed.y += (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT;
 
-    // printf("_\nCohesion %f, %f\n", speed.x, speed.y);
+    if (robot_id == 10)
+        printf("_\nCohesion %f, %f\n", (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT, (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT);
+   
 
 	// Dispersion
-    speed.x += dispersion.x * DISPERSION_WEIGHT;
-    speed.y += dispersion.y * DISPERSION_WEIGHT;
+    new_speed.x += dispersion.x * DISPERSION_WEIGHT;
+    new_speed.y += dispersion.y * DISPERSION_WEIGHT;
 
 
     // Migration
     norm = dist_pos(migr, pos);
-    speed.x += (MIGR_X - pos.x) / norm * MIGR_WEIGHT;
-    speed.y += (MIGR_Y - pos.y) / norm * MIGR_WEIGHT;
+    new_speed.x += (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT;
+    new_speed.y += (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT;
+
+
+    // Momentum (smoothen the trajectory)
+    previous_speed.x = previous_speed.x * SPEED_MOMENTUM + new_speed.x * (1-SPEED_MOMENTUM);
+    previous_speed.y = previous_speed.y * SPEED_MOMENTUM + new_speed.y * (1-SPEED_MOMENTUM);
 
 
     // Update msl and msr
-    vector_to_wheelspeed(msl, msr, speed.x, speed.y);
+    vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y);
 
     if (robot_id == 10) {
         printf("Dispersion %f, %f\n", dispersion.x * DISPERSION_WEIGHT, dispersion.y * DISPERSION_WEIGHT);
-        printf("Migration %f, %f\n", (MIGR_X - pos.x) / norm * MIGR_WEIGHT, (MIGR_Y - pos.y) / norm * MIGR_WEIGHT);
+        printf("Migration %f, %f\n", (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT, (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT);
         printf("Reynold MSL: %f MSR: %f\n", *msl, *msr);
     }
 }
@@ -438,8 +444,8 @@ int main()
         clamp(&msl, MAX_SPEED);
         clamp(&msr, MAX_SPEED);
 
-        msl_w = msl * MAX_SPEED_WEB / 1000.; // TODO: 1000 should probably be MAX_SPEED
-        msr_w = msr * MAX_SPEED_WEB / 1000.;
+        msl_w = msl * (MAX_SPEED_WEB-0.01) / MAX_SPEED; // TODO: 1000 should probably be MAX_SPEED
+        msr_w = msr * (MAX_SPEED_WEB-0.01) / MAX_SPEED;
 
         wb_motor_set_velocity(dev_left_motor, msl_w);
         wb_motor_set_velocity(dev_right_motor, msr_w);
