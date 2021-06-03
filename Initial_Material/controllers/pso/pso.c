@@ -247,7 +247,7 @@ double bestInSwarm(double localBest[swarmsize][datasize], double localBestPerf[s
 // MATH HELPER FUNCTIONS
 
 // Find the argmax of the array
-int argmax(double array, int size)
+int argmax(double array[], int size)
 {
     int best_idx = 0;
     for (int i = 1; i < size; i++)

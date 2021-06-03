@@ -1,4 +1,5 @@
 #include "metrics.h"
+#include "../const.h"
 
 
 // Metrics and saving
@@ -11,6 +12,9 @@ double metric_form = 0.0;
 
 static float prev_center[2] = {-1000, -1000};
 static const float rel_formation_pos[5][2] = {{0., 0.}, {1.0, 1.0}, {0.5, 0.5}, {0.4, 0.4}, {1.5, 1.5}}; // TO BE DEFINED
+
+static double pso_metric_flock;
+static double pso_metric_form;
 
 
 
@@ -111,10 +115,18 @@ void update_flocking_metric(int end_crit, float loc_abs[ROBOTS_N][3])
         if (SUPERVISOR_VERBOSE_METRIC)
             printf("Flocking Metric: %f\n", fit_step);
     }
-    else if (!saved)
+    else if (!saved && !PSO)
     {
         wchar_t* name = L"flocking";
         save_metric(name, metric_flock / metric_stepcount);
+    }
+    else if (PSO) 
+    {
+        pso_metric_flock = metric_flock / metric_stepcount;
+        metric_stepcount = 0;
+        metric_flock = 0;
+        prev_center[0] = -1000;
+        prev_center[1] = -1000;
     }
 }
 
@@ -171,11 +183,26 @@ void update_formation_metric(int end_crit, float loc_abs[ROBOTS_N][3])
         if (SUPERVISOR_VERBOSE_METRIC)
             printf("Formation Metric: %f\n", fit_step);
     }
-    else if (!saved)
+    else if (!saved && !PSO)
     {
         wchar_t* name = L"formation";
         save_metric(name, metric_form / metric_stepcount);
     }
+    else if (PSO) 
+    {
+        pso_metric_form = metric_form / metric_stepcount;
+        metric_stepcount = 0;
+        metric_form = 0;
+        prev_center[0] = -1000;
+        prev_center[1] = -1000;
+    }
+}
+
+double get_final_metric(int task) {
+    if (task == 1)
+        return pso_metric_flock;
+    if (task == 2)
+        return pso_metric_form;
 }
 
 

@@ -3,7 +3,7 @@
 
 // Functions
 double *pso(int, int, double, double, double, double, double, int, int);                         // Run particle swarm optimization
-void fitness(double[][DATASIZE], double[], int[][SWARMSIZE]);                                    // Fitness function for particle evolution
+void fitness(double[DATASIZE], double, int[][SWARMSIZE]);                                    // Fitness function for particle evolution
 void findPerformance(double[][DATASIZE], double[], double[], char, int[][SWARMSIZE]);            // Find the current performance of the swarm
 void updateLocalPerf(double[][DATASIZE], double[], double[][DATASIZE], double[], double[]);      // Update the best performance of a single particle
 void updateNBPerf(double[][DATASIZE], double[], double[][DATASIZE], double[], int[][SWARMSIZE]); // Update the best performance of a particle neighborhood
