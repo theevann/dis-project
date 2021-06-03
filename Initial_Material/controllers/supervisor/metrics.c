@@ -205,7 +205,7 @@ double get_metric() {
 }
 
 
-double reset_metric() {
+void reset_metric() {
     metric = 0;
     metric_stepcount = 0;
     start_time = wb_robot_get_time();

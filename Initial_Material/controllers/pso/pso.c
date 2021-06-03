@@ -20,6 +20,7 @@
 int swarmsize;
 int datasize;
 int nb;
+double (*fitness_fn)(double[]);
 
 /* Particle swarm optimization function                                      */
 /*                                                                           */
@@ -33,7 +34,7 @@ int nb;
 /* max:         maximum initial value of particle element                    */
 /* iterations:  number of iterations to run in the optimization              */
 /* n_datasize:  number of elements in particle                               */
-double *pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax, double min, double max, int iterations, int n_datasize)
+void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax, double min, double max, int iterations, int n_datasize, double (*fitness_ptr)(double[]), double best[])
 {
     double swarm[n_swarmsize][n_datasize];   // Swarm of particles
     double perf[n_swarmsize];                // Current swarm performance
@@ -51,11 +52,9 @@ double *pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double v
     swarmsize = n_swarmsize;
     datasize = n_datasize;
     nb = n_nb;
+    fitness_fn = fitness_ptr;
 
-    sprintf(label, "Iteration: 0");
-    wb_supervisor_set_label(0, label, 0.01, 0.01, 0.1, 0xffffff, 0, FONT);
     srand(time(NULL));    // Seed the random generator
-
 
     // Setup neighborhood
     for (i = 0; i < swarmsize; i++)
@@ -110,7 +109,7 @@ double *pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double v
             {
                 // Update velocities
                 v[i][j] *= 0.6;
-                v[i][j] += lweight * rnd() * (localBest[i][j] - swarm[i][j]) + nbweight * rnd() * (nbBest[i][j] - swarm[i][j]);
+                v[i][j] += lweight * randIn(0,1) * (localBest[i][j] - swarm[i][j]) + nbweight * randIn(0,1) * (nbBest[i][j] - swarm[i][j]);
 
                 // Move particles
                 swarm[i][j] += v[i][j];
@@ -132,7 +131,6 @@ double *pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double v
     }
 
     // Find best result achieved
-    double best[datasize];
     findPerformance(localBest, localBestPerf, NULL, SELECT, neighbors);
     bestPerf = bestInSwarm(localBest, localBestPerf, best);
 
@@ -140,8 +138,6 @@ double *pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double v
         printf("### Best performance found ###\n");
         printf("Performance over %d iterations: %f\n", iterations, bestPerf);
     }
-
-    return best;
 }
 
 
@@ -158,13 +154,13 @@ void findPerformance(double swarm[swarmsize][datasize], double perf[swarmsize],
     {
         if (type == EVOLVE_AVG)
         {
-            fit = fitness(swarm[i], neighbors);
+            fit = (*fitness_fn)(swarm[i]);
             perf[i] = ((age[i] - 1.0) * perf[i] + fit) / age[i];
             age[i]++;
         }
         else if (type == EVOLVE)
         {
-            fit = fitness(swarm[i], neighbors);
+            fit = (*fitness_fn)(swarm[i]);
             perf[i] = fit;
         }
         else if (type == SELECT)
@@ -172,7 +168,7 @@ void findPerformance(double swarm[swarmsize][datasize], double perf[swarmsize],
             perf[i] = 0.0;
             for (j = 0; j < 5; j++)
             {
-                fit = fitness(swarm[i], neighbors);
+                fit = (*fitness_fn)(swarm[i]);
                 perf[i] += fit;
             }
             perf[i] /= 5.0;

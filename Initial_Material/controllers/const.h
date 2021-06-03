@@ -1,12 +1,14 @@
 #include <math.h>
 #include "struct.h"
 
-#define TASK 2   // TASK: 0 is localization, 1 is flocking, 2 is formation control
+#define TASK 1   // TASK: 0 is localization, 1 is flocking, 2 is formation control
 #define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing
 #define TRAJECTORY 1 // Tractectory used if task is localization
 
 // PSO 
 #define PSO false
+#define ARENA_SIZE_X 5     // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
+#define ARENA_SIZE_Y 3     // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
 
 
 #if WORLD == 1
@@ -18,7 +20,6 @@
 #endif
 
 
-#define ARENA_SIZE 0.94     // TODO: change arena size
 
 
 /* ROBOT CONSTANTS */

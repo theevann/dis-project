@@ -35,20 +35,25 @@
 #define RADIUS 0.8
 
 
-static WbNodeRef robots[ROBOTS_N];
+WbNodeRef robots[ROBOTS_N];
+WbFieldRef rob_trans[ROBOTS_N];    // Robots translation fields
+WbFieldRef rob_rotation[ROBOTS_N]; // Robots rotation fields
+
 WbDeviceTag emitter;
 WbDeviceTag receiver;
-double loc_abs[ROBOTS_N][3];
-double loc[ROBOTS_N][3];
-double rot[ROBOTS_N][4];
+float loc_abs[ROBOTS_N][3];
+double *loc[ROBOTS_N];
+double *rot[ROBOTS_N];
 
 static int time_step;
 
 
 void init_super();
 void get_absolute_position();
-void fitness(double[DATASIZE], double, int, int);
+int update_metric(int task);
+char valid_locs(int rob_id, int *j);
 void random_pos(int);
+double fitness(double[DATASIZE]);
 
 
 /*
@@ -95,26 +100,29 @@ void get_absolute_position()
 }
 
 
-void update_metric(int task)
+int update_metric(int task)
 {
     // Compute the metric for the corresponding task
     if (task == 1)
     {
-        update_flocking_metric(loc_abs);
+        return update_flocking_metric(loc_abs);
     }
     else if (task == 2)
     {
-        update_formation_metric(loc_abs);
+        return update_formation_metric(loc_abs);
     }
+    
+    printf("YOU SHOULD NOT BE HERE");
+    return 0;
 }
 
 
 /* MAIN - Distribute and test controllers */
 int main()
 {
-    double *weights;    // Optimized result
+    double weights[DATASIZE];    // Optimized result
     double buffer[255]; // Buffer for emitter
-    int i, j, k;        // Counter variables
+    int i, j;        // Counter variables
 
     /* Initialisation */
     init_super();
@@ -134,13 +142,15 @@ int main()
     for (j = 0; j < 10; j++)
     {
         // Get result of optimization
-        weights = pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, ITS, DATASIZE);
+        pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, ITS, DATASIZE, &fitness, weights);
+
+        printf("GOT PSO\n");
 
         fit = 0.0;
         // Run FINALRUN tests and calculate average
         for (i = 0; i < FINALRUNS; i++)
         {
-            fitness(weights, f);
+            f = fitness(weights);
             fit += f;
         }
         fit /= FINALRUNS;
@@ -150,10 +160,7 @@ int main()
         if (fit > bestfit)
         {
             bestfit = fit;
-            for (i = 0; i < DATASIZE; i++)
-            {
-                bestw[i] = weights[i];
-            }
+            copyParticle(bestw, weights);
         }
 
         printf("Performance of the best solution: %.3f\n", fit);
@@ -185,9 +192,9 @@ char valid_locs(int rob_id, int *j)
             continue;
 
         if (sqrt(pow(loc[i][0] - loc[rob_id][0], 2) + pow(loc[i][2] - loc[rob_id][2], 2)) <
-            (2 * ROB_RADIUS + 0.01)
+            (2 * ROB_RADIUS + 0.01))
         {
-            *j++;
+            (*j)++;
             return 0;
         }
     }
@@ -201,16 +208,17 @@ void random_pos(int numRobs)
 {
     //printf("Setting random position for %d\n",rob_id);
     float leader_pos[2];
-    leader_pos[0] = ARENA_SIZE * rnd() - ARENA_SIZE / 2.0;
-    leader_pos[1] = ARENA_SIZE * rnd() - ARENA_SIZE / 2.0;
+    leader_pos[0] = randIn(-ARENA_SIZE_X / 2.0, ARENA_SIZE_X / 2.0); // TODO: Check arena dimension (it is not square !)
+    leader_pos[1] = randIn(-ARENA_SIZE_Y / 2.0, ARENA_SIZE_Y / 2.0);
 
     int i;
     for (i = 0; i < numRobs; i++)
     {
-        rot[i][0] = 0.0;
-        rot[i][1] = 1.0;
-        rot[i][2] = 0.0;
-        rot[i][3] = 2.0 * 3.14159 * rnd();
+        // Note: changer la rotation perd le robot qui ne peut pas se retrouver
+        // rot[i][0] = 0.0;
+        // rot[i][1] = 1.0;
+        // rot[i][2] = 0.0;
+        // rot[i][3] = 2.0 * 3.14159 * randIn(0, 1);
 
         int j = 0;
         do
@@ -222,13 +230,13 @@ void random_pos(int numRobs)
         
         //printf("%d at %.2f, %.2f\n", rob_id, loc[rob_id][0], loc[rob_id][2]);
         wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robots[i], "translation"), loc[i]);
-        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robots[i], "rotation"), rot[i]);
+        // wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robots[i], "rotation"), rot[i]);
     }
 }
 
 
 // Distribute fitness functions among robots
-double fitness(double weights[DATASIZE], int neighbors[SWARMSIZE][SWARMSIZE])
+double fitness(double weights[DATASIZE])
 {
     double buffer[255];
 
