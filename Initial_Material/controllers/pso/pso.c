@@ -151,29 +151,29 @@ void findPerformance(double swarm[swarmsize][datasize], double perf[swarmsize],
                      double age[swarmsize], char type,
                      int neighbors[swarmsize][swarmsize])
 {
-    double* fit;
+    double fit;
     int i, j;
 
     for (i = 0; i < swarmsize; i++)
     {
         if (type == EVOLVE_AVG)
         {
-            fitness(swarm[i], fit, neighbors);
-            perf[i] = ((age[i] - 1.0) * perf[i] + *fit) / age[i];
+            fit = fitness(swarm[i], neighbors);
+            perf[i] = ((age[i] - 1.0) * perf[i] + fit) / age[i];
             age[i]++;
         }
         else if (type == EVOLVE)
         {
-            fitness(swarm[i], fit, neighbors);
-            perf[i] = *fit;
+            fit = fitness(swarm[i], neighbors);
+            perf[i] = fit;
         }
         else if (type == SELECT)
         {
             perf[i] = 0.0;
             for (j = 0; j < 5; j++)
             {
-                fitness(swarm[i], fit, neighbors);
-                perf[i] += *fit;
+                fit = fitness(swarm[i], neighbors);
+                perf[i] += fit;
             }
             perf[i] /= 5.0;
         }

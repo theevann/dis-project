@@ -4,47 +4,52 @@
 
 // Metrics and saving
 bool saved = false;
+double metric = 0.0;
+double start_time = 0.0;
 long metric_stepcount = 0;
 
-double metric_loc = 0.0;
-double metric_flock = 0.0;
-double metric_form = 0.0;
 
 static float prev_center[2] = {-1000, -1000};
 static const float rel_formation_pos[5][2] = {{0., 0.}, {1.0, 1.0}, {0.5, 0.5}, {0.4, 0.4}, {1.5, 1.5}}; // TO BE DEFINED
 
-static double pso_metric_flock;
-static double pso_metric_form;
 
-
-
-void update_localization_metric(int end_crit, float loc_abs[ROBOTS_N][3], float loc_est[ROBOTS_N][3])
+int update_localization_metric(float loc_abs[ROBOTS_N][3], float loc_est[ROBOTS_N][3])
 {
-    double time = wb_robot_get_time(); // SECONDS
-    
+    double time = wb_robot_get_time() - start_time; // SECONDS
+    double end_crit;
+
+    if (TRAJECTORY == 1) end_crit = 115;
+    if (TRAJECTORY == 2) end_crit = 107;
+
+
     if (time <= end_crit)
     {
         for (int i = 0; i < ROBOTS_N; i++)
         {
-            metric_loc += dist(loc_abs[i], loc_est[i]);
+            metric += dist(loc_abs[i], loc_est[i]);
 
             if (SUPERVISOR_VERBOSE_METRIC)
                 printf("Localization error robot%d: %f\n", i, dist(loc_abs[i], loc_est[i]));
         }
+
+        return 1;
     }
     else if (!saved)
     {
         wchar_t* name = L"localization";
-        save_metric(name, metric_loc / (double)ROBOTS_N);
+        save_metric(name, metric / (double)ROBOTS_N);
     }
+
+    return 0;
 }
 
 
-void update_flocking_metric(int end_crit, float loc_abs[ROBOTS_N][3])
+int update_flocking_metric(float loc_abs[ROBOTS_N][3])
 {
     int i, j;
     float flock_center[2] = {0., 0.};
     float dist_to_goal[2];
+    double end_crit = 0;
 
     // Compute center of flock
     for (i = 0; i < ROBOTS_N; i++)
@@ -106,7 +111,7 @@ void update_flocking_metric(int end_crit, float loc_abs[ROBOTS_N][3])
         
         // Total metric on this timestep
         fit_step = fit_o * fit_d1 * fit_d2 * fit_v;
-        metric_flock += fit_step;
+        metric += fit_step;
         metric_stepcount++;
 
         prev_center[0] = flock_center[0];
@@ -114,26 +119,26 @@ void update_flocking_metric(int end_crit, float loc_abs[ROBOTS_N][3])
 
         if (SUPERVISOR_VERBOSE_METRIC)
             printf("Flocking Metric: %f\n", fit_step);
+
+        return 1;
     }
     else if (!saved && !PSO)
     {
         wchar_t* name = L"flocking";
-        save_metric(name, metric_flock / metric_stepcount);
+        save_metric(name, metric / metric_stepcount);
     }
-    else if (PSO) 
-    {
-        pso_metric_flock = metric_flock / metric_stepcount;
-        metric_stepcount = 0;
-        metric_flock = 0;
-        prev_center[0] = -1000;
-        prev_center[1] = -1000;
-    }
+
+    return 0;
 }
 
 
-void update_formation_metric(int end_crit, float loc_abs[ROBOTS_N][3])
+int update_formation_metric(float loc_abs[ROBOTS_N][3])
 {
-    double time = wb_robot_get_time(); // SECONDS
+    double time = wb_robot_get_time() - start_time; // SECONDS
+    double end_crit;
+
+    if (TRAJECTORY == 1) end_crit = 115;
+    if (TRAJECTORY == 2) end_crit = 107;
 
     if (time <= end_crit)
     {
@@ -174,7 +179,7 @@ void update_formation_metric(int end_crit, float loc_abs[ROBOTS_N][3])
 
         // Total metric on this timestep
         fit_step = fit_v * fit_d;
-        metric_form += fit_step;
+        metric += fit_step;
         metric_stepcount++;
 
         prev_center[0] = formation_center[0];
@@ -182,29 +187,31 @@ void update_formation_metric(int end_crit, float loc_abs[ROBOTS_N][3])
 
         if (SUPERVISOR_VERBOSE_METRIC)
             printf("Formation Metric: %f\n", fit_step);
+
+        return 1;
     }
     else if (!saved && !PSO)
     {
         wchar_t* name = L"formation";
-        save_metric(name, metric_form / metric_stepcount);
+        save_metric(name, metric / metric_stepcount);
     }
-    else if (PSO) 
-    {
-        pso_metric_form = metric_form / metric_stepcount;
-        metric_stepcount = 0;
-        metric_form = 0;
-        prev_center[0] = -1000;
-        prev_center[1] = -1000;
-    }
+
+    return 0;
 }
 
-double get_final_metric(int task) {
-    if (task == 1)
-        return pso_metric_flock;
-    if (task == 2)
-        return pso_metric_form;
+
+double get_metric() {
+    return metric / metric_stepcount;
 }
 
+
+double reset_metric() {
+    metric = 0;
+    metric_stepcount = 0;
+    start_time = wb_robot_get_time();
+    prev_center[0] = -1000;
+    prev_center[1] = -1000;
+}
 
 
 // HELPER FUNCTIONS

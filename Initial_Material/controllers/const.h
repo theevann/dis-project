@@ -1,7 +1,7 @@
 #include <math.h>
 #include "struct.h"
 
-#define TASK 1   // TASK: 0 is localization, 1 is flocking, 2 is formation control
+#define TASK 2   // TASK: 0 is localization, 1 is flocking, 2 is formation control
 #define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing
 #define TRAJECTORY 1 // Tractectory used if task is localization
 
@@ -18,12 +18,16 @@
 #endif
 
 
+#define ARENA_SIZE 0.94     // TODO: change arena size
+
+
 /* ROBOT CONSTANTS */
 #define NB_SENSORS 8
 #define AXLE_LENGTH 0.052   // Distance between wheels of robot (meters)
 #define WHEEL_AXIS 0.057    // Distance between the two wheels in meter
 #define WHEEL_RADIUS 0.0205 // Radius of the wheel in meter
 #define MAX_SPEED_WEB 6.28  // Maximum speed webots
+#define ROB_RADIUS 0.035    // Robot radius
 
 #define MAX_SPEED 800
 #define BIAS_SPEED 400
@@ -65,6 +69,7 @@ extern const position_t INIT_POS[];
 /* FORMATION */
 #define LEADER_ID 0
 #define D_MAX_FORM 2 // TO DEFINE: maximum distance travelled in 1 timestep: timestep * maximum speed
+
 
 /* MATH HELPER */
 #define sign(X) (2*(X >= 0) - 1)
