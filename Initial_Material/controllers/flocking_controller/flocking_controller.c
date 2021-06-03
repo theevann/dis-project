@@ -14,13 +14,14 @@
 #include <webots/receiver.h>
 
 
+#include "../struct.h"
 #include "../const.h"
 #include "odometry.h"
 #include "kalman_acc.h"
 #include "kalman_vel.h"
 
 
-// Choose a localisation technique
+// Choose a localization technique
 #define ENCODER 1
 #define ACCELEROMETER 2
 #define GPS 3
@@ -35,54 +36,18 @@
 #define TIME_CAL 5         // Accelerometer calibration time (robot does not move for TIME_CAL seconds)
 
 
-// ##### TO CLEANUP LATER
-#define sign(X) (2*(X >= 0) - 1)
-
-#define COHESION_WEIGHT 0.15 //0.6
-#define MIGRATION_WEIGHT 0.15
-#define DISPERSION_WEIGHT 0.4
-#define DISPERSION_THRESHOLD 0.2
-#define SPEED_MOMENTUM 0.9
-
-#define NB_SENSORS 8
-#define FLOCK_SIZE 5
-#define BIAS_SPEED 400
-#define MAX_SPEED 800
-#define MAX_SPEED_WEB 6.28  // Maximum speed webots
-#define AXLE_LENGTH 0.052	// Distance between wheels of robot (meters)
-
-
+// For Obstacle Avoidance Behaviour
 double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
 double last_obstacle_avoidance = -100.;
+int flocking_group;
+
+// For Flocking Behaviour
 position_t previous_speed = {0, 0, 0};
-// ##### END TO CLEANUP LATER
+static position_t flock_prev_rpos[ROBOTS_N], flock_rpos[ROBOTS_N];
 
-
-typedef struct 
-{
-    double prev_gps[3];
-    double gps[3];
-    double acc_mean[3];
-    double acc[3];
-    double prev_left_enc;
-    double left_enc;
-    double prev_right_enc;
-    double right_enc;
-    bool gps_true;
-} measurement_t;
 
 static measurement_t meas;
-
 static position_t initial_pos, pos, speed;
-static position_t flock_prev_pos[ROBOTS_N], flock_pos[ROBOTS_N];
-
-const position_t all_initial_pos[ROBOTS_N] = {
-    {-2.9, 0., -M_PI / 2},
-    {-2.9, -0.1, -M_PI / 2},
-    {-2.9, 0.1, -M_PI / 2},
-    {-2.9, -0.2, -M_PI / 2},
-    {-2.9, 0.2, -M_PI / 2},
-};
 
 double last_gps_time_sec = 0.0f;
 static int robot_id, robot_flock_id;
@@ -108,9 +73,10 @@ void init_variables()
     robot_name = (char *)wb_robot_get_name();
     sscanf(robot_name, "epuck%d", &robot_id);
     robot_flock_id = robot_id % FLOCK_SIZE;
+    flocking_group = robot_id / FLOCK_SIZE;
 
     // Initialize the position
-    initial_pos = all_initial_pos[robot_id];
+    initial_pos = INIT_POS[robot_id];
     memcpy(&pos, &initial_pos, sizeof(initial_pos));
 
     // Initialize the gps measurements
@@ -160,17 +126,23 @@ void clamp(float *number, float limit)
 }
 
 
-float dist(float v1[2], float v2[2])
+double dist(double v1[2], double v2[2])
 {
     return sqrtf(powf(v1[0] - v2[0], 2) + powf(v1[1] - v2[1], 2));
 }
 
 
-float dist_pos(position_t pos_1, position_t pos_2)
+double dist_pos(position_t pos_1, position_t pos_2)
 {
-    float v_pos_1[2] = {pos_1.x, pos_1.y};
-    float v_pos_2[2] = {pos_2.x, pos_2.y};
+    double v_pos_1[2] = {pos_1.x, pos_1.y};
+    double v_pos_2[2] = {pos_2.x, pos_2.y};
     return dist(v_pos_1, v_pos_2);
+}
+
+
+double norm_pos(position_t pos)
+{
+    return sqrtf(powf(pos.x, 2) + powf(pos.y, 2));
 }
 
 
@@ -187,7 +159,7 @@ void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy)
     float bearing = atan2(y, x);        // Orientation of the wanted position
 
     // Compute forward control
-    // float u = Ku * range * cosf(bearing);
+    // float u = Ku * range * cosf(bearing)  *  10;
     float u = Ku * cosf(bearing);
     // Compute rotational control
     float w = Kw * bearing;
@@ -199,7 +171,8 @@ void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy)
     // printf("Reynolds MSL: %f MSR: %f\n", *msl, *msr);
     // printf("rob x: %f, rob y: %f, rob theta: %f (%f)\n", pos.x, pos.y, pos.heading + M_PI / 2, pos.heading);
     // printf("x: %f, y: %f\n", x, y);
-    // printf("range: %f, bearing: %f\n", range, bearing);
+    if (robot_id == 10)
+        printf("range: %f, bearing: %f\n", range, bearing);
     // printf("u: %f, w: %f\n", u, w);
     // limit(msl, MAX_SPEED);
     // limit(msr, MAX_SPEED);
@@ -224,32 +197,36 @@ void braitenberg(float* msl, float* msr)
 
 void reynolds(float* msl, float* msr)
 {
-    position_t migr = {MIGR_X, MIGR_Y, 0};
+    position_t migr = {MIGR[flocking_group].x, MIGR[flocking_group].y, 0};
 	position_t flock_pos_avg = {0, 0, 0};	 // Flock average positions
-	position_t dispersion = {0, 0, 0};	 // Flock average positions
+	position_t flock_rpos_avg = {0, 0, 0};	 // Flock average positions
+	position_t dispersion = {0, 0, 0}, cohesion = {0, 0, 0}, migration = {0, 0, 0};	 // Flock average positions
 	position_t new_speed = {0, 0, 0};	 // Flock average positions
 	// float flock_spd_avg[2] = {0, 0}; // Flock average speeds
 
-    float norm;
+    double norm;
 
 	for (int i = 0; i < FLOCK_SIZE; i++)
 	{
 		if (i == robot_flock_id)
 			continue;
 
-        flock_pos_avg.x += flock_pos[i].x;
-        flock_pos_avg.y += flock_pos[i].y;
+        flock_rpos_avg.x += flock_rpos[i].x;
+        flock_rpos_avg.y += flock_rpos[i].y;
         // flock_spd_avg.x += flock_spd[i][0];
         // flock_spd_avg.x += flock_spd[i][1];
 		
-        norm = dist_pos(pos, flock_pos[i]);
+        // Dispersion
+        norm = norm_pos(flock_rpos[i]);
         if (norm < DISPERSION_THRESHOLD)
         {
-            dispersion.x += norm * sign(pos.x - flock_pos[i].x) / (abs(pos.x - flock_pos[i].x) + 0.5);
-            dispersion.y += norm * sign(pos.y - flock_pos[i].y) / (abs(pos.y - flock_pos[i].y) + 0.5);
+            dispersion.x -= norm * sign(flock_rpos[i].x) / (abs(flock_rpos[i].x) + 0.5);
+            dispersion.y -= norm * sign(flock_rpos[i].y) / (abs(flock_rpos[i].y) + 0.5);
         }
 	}
 
+	flock_rpos_avg.x /= (FLOCK_SIZE - 1);
+	flock_rpos_avg.y /= (FLOCK_SIZE - 1);
 	flock_pos_avg.x /= (FLOCK_SIZE - 1);
 	flock_pos_avg.y /= (FLOCK_SIZE - 1);
 	// flock_spd_avg.x /= (FLOCK_SIZE - 1);
@@ -257,23 +234,22 @@ void reynolds(float* msl, float* msr)
 
 
     // Cohesion
-    norm = dist_pos(flock_pos_avg, pos);
-    new_speed.x += (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT;
-    new_speed.y += (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT;
-
-    if (robot_id == 10)
-        printf("_\nCohesion %f, %f\n", (flock_pos_avg.x - pos.x) / norm * COHESION_WEIGHT, (flock_pos_avg.y - pos.y) / norm * COHESION_WEIGHT);
-   
-
-	// Dispersion
-    new_speed.x += dispersion.x * DISPERSION_WEIGHT;
-    new_speed.y += dispersion.y * DISPERSION_WEIGHT;
+    norm = norm_pos(flock_rpos_avg) + EPS;
+    cohesion.x = flock_rpos_avg.x / norm;
+    cohesion.y = flock_rpos_avg.y / norm;
+    // cohesion.x = flock_rpos_avg.x * 5;
+    // cohesion.y = flock_rpos_avg.y * 5;
 
 
     // Migration
-    norm = dist_pos(migr, pos);
-    new_speed.x += (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT;
-    new_speed.y += (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT;
+    norm = dist_pos(migr, pos) + EPS;
+    migration.x = (MIGR[flocking_group].x - pos.x) / norm;
+    migration.y = (MIGR[flocking_group].y - pos.y) / norm;
+
+
+    // Aggregate
+    new_speed.x = dispersion.x * DISPERSION_WEIGHT + cohesion.x * COHESION_WEIGHT + migration.x * MIGRATION_WEIGHT;
+    new_speed.y = dispersion.y * DISPERSION_WEIGHT + cohesion.y * COHESION_WEIGHT + migration.y * MIGRATION_WEIGHT;
 
 
     // Momentum (smoothen the trajectory)
@@ -285,8 +261,9 @@ void reynolds(float* msl, float* msr)
     vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y);
 
     if (robot_id == 10) {
+        printf("_\nCohesion %f, %f\n", cohesion.x * COHESION_WEIGHT, cohesion.y * COHESION_WEIGHT);
         printf("Dispersion %f, %f\n", dispersion.x * DISPERSION_WEIGHT, dispersion.y * DISPERSION_WEIGHT);
-        printf("Migration %f, %f\n", (MIGR_X - pos.x) / norm * MIGRATION_WEIGHT, (MIGR_Y - pos.y) / norm * MIGRATION_WEIGHT);
+        printf("Migration %f, %f\n", migration.x * MIGRATION_WEIGHT, migration.y * MIGRATION_WEIGHT);
         printf("Reynold MSL: %f MSR: %f\n", *msl, *msr);
     }
 }
@@ -306,7 +283,7 @@ void receive_ping_messages()
     double message_rssi;  // Received Signal Strength indicator
 
     char *inbuffer; // Buffer to receive the sender id
-    int sender_id, sender_flock_id;
+    int sender_id, sender_flock_id, sender_flocking_group;
 
     double theta, range;
     double dx, dy, rx, ry;
@@ -316,6 +293,12 @@ void receive_ping_messages()
         inbuffer = (char *)wb_receiver_get_data(receiver);
         sender_id = atoi(inbuffer);
         sender_flock_id = sender_id % FLOCK_SIZE;
+        sender_flocking_group = sender_id / FLOCK_SIZE;
+
+        if (sender_flocking_group != flocking_group) {
+            wb_receiver_next_packet(receiver);
+            continue;
+        }
 
         message_direction = wb_receiver_get_emitter_direction(receiver);
         message_rssi = wb_receiver_get_signal_strength(receiver);
@@ -334,11 +317,11 @@ void receive_ping_messages()
         // printf("y %f, x %f\n", y, x);
 
         // Get position update
-        flock_prev_pos[sender_flock_id].x = flock_pos[sender_flock_id].x;
-        flock_prev_pos[sender_flock_id].y = flock_pos[sender_flock_id].y;
+        flock_prev_rpos[sender_flock_id].x = flock_rpos[sender_flock_id].x;
+        flock_prev_rpos[sender_flock_id].y = flock_rpos[sender_flock_id].y;
 
-        flock_pos[sender_flock_id].x = rx + pos.x;        // absolute x pos
-        flock_pos[sender_flock_id].y = ry + pos.y;        // absolute y pos
+        flock_rpos[sender_flock_id].x = rx;        // rel x pos
+        flock_rpos[sender_flock_id].y = ry;        // rel y pos
 
         // relative_speed[sender_id][0] = (1. / DELTA_T) * (flock_pos[sender_id].x - flock_prev_pos[sender_id].x);
         // relative_speed[sender_id][1] = (1. / DELTA_T) * (flock_pos[sender_id].y - flock_prev_pos[sender_id].y);
@@ -360,7 +343,7 @@ int main()
     else if(LOCALIZATION_METHOD == KALMAN_VEL)
         init_kalman_vel(&initial_pos);
 
-    while (wb_robot_step(time_step) != -1 && robot_id < FLOCK_SIZE)
+    while (wb_robot_step(time_step) != -1)
     {
         // printf("\n \n");
         // printf("\nNEW TIMESTEP\n");
@@ -420,7 +403,7 @@ int main()
         braitenberg(&braiten_msl, &braiten_msr);
         reynolds(&reynolds_msl, &reynolds_msr);
 
-        if (time_now_s - last_obstacle_avoidance < 2)
+        if (time_now_s - last_obstacle_avoidance < TIME_IN_OBSTACLE_AVOIDANCE)
         {
             msl = braiten_msl + BIAS_SPEED;
             msr = braiten_msr + BIAS_SPEED;

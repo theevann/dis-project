@@ -1,23 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-
-#include <webots/robot.h>
-#include <webots/position_sensor.h>
-#include <webots/accelerometer.h>
-#include <webots/gps.h>
-
 #include "odometry.h"
 
-/*CONSTANTES*/
-#define WHEEL_AXIS 		0.057 		// Distance between the two wheels in meter
-#define WHEEL_RADIUS 	0.0205		// Radius of the wheel in meter
-#define ALPHA         	0.4	    	// Alpha running acc mean
-
-/*VERBOSE_FLAGS*/
-#define VERBOSE_ENC false     	// Print odometry values computed with wheel encoders
-#define VERBOSE_ACC false    	// Print odometry values computed with accelerometer
-#define VERBOSE_GPS false    	// Print odometry values computed with accelerometer
 
 /*GLOBAL*/
 static double T;

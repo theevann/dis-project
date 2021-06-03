@@ -1,6 +1,6 @@
 #include <gsl/gsl_blas.h>
 
-extern double dt;
+extern double timestep;
 
 extern gsl_vector* state;
 extern gsl_matrix* cov;

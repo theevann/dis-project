@@ -57,8 +57,8 @@ void update_flocking_metric(int end_crit, float loc_abs[ROBOTS_N][3])
     flock_center[1] /= (float)ROBOTS_N;
 
     // Compute distance to goal
-    dist_to_goal[0] = fabsf(flock_center[0] - MIGR_X);
-    dist_to_goal[1] = fabsf(flock_center[1] - MIGR_Y);
+    dist_to_goal[0] = fabsf(flock_center[0] - MIGR[0].x);
+    dist_to_goal[1] = fabsf(flock_center[1] - MIGR[0].y);
 
     if (dist_to_goal[0] < .2 && dist_to_goal[1] < .2)  // TODO: define range
         end_crit = 1;

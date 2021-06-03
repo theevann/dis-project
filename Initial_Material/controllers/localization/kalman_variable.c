@@ -4,7 +4,7 @@
 
 /*  Define kalman variables  */
 
-double dt;
+double timestep;
 
 gsl_vector* state;
 gsl_matrix* cov;
