@@ -95,6 +95,7 @@ void send_position(position_t pos)
     char buffer[255]; // Buffer for sending data
 
     // Sending positions to the robots, comment the following two lines if you don't want the supervisor sending it
+    // First 2 digits are identifiers, 0 for robot, and 0 for sending localisation position
     sprintf(buffer, "%d#%g#%g#%g", robot_id, pos.x, pos.y, pos.heading);
     wb_emitter_send(emitter, buffer, strlen(buffer));
 }

@@ -6,10 +6,10 @@
 #define TRAJECTORY 1 // Tractectory used if task is localization
 
 // PSO 
-#define PSO false
-#define ARENA_SIZE_X 5     // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
-#define ARENA_SIZE_Y 3     // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
-
+#define PSO true
+#define ARENA_SIZE_X 5 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
+#define ARENA_SIZE_Y 3 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
+#define FIT_T 5       // Time of simulation to run for fitness during optimization
 
 #if WORLD == 1
     #define ROBOTS_N 5
@@ -18,8 +18,6 @@
     #define ROBOTS_N 10
     #define TIME_IN_OBSTACLE_AVOIDANCE 1
 #endif
-
-
 
 
 /* ROBOT CONSTANTS */

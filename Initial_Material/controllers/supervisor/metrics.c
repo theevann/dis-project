@@ -65,8 +65,13 @@ int update_flocking_metric(float loc_abs[ROBOTS_N][3])
     dist_to_goal[0] = fabsf(flock_center[0] - MIGR[0].x);
     dist_to_goal[1] = fabsf(flock_center[1] - MIGR[0].y);
 
-    if (dist_to_goal[0] < .2 && dist_to_goal[1] < .2)  // TODO: define range
+    if (dist_to_goal[0] < .2 && dist_to_goal[1] < .2  && !PSO)  // TODO: define range
         end_crit = 1;
+
+    if (PSO) {
+        if (wb_robot_get_time() - start_time >= FIT_T)
+            end_crit = 1;
+    }
 
     if (!end_crit)
     {
@@ -137,7 +142,7 @@ int update_formation_metric(float loc_abs[ROBOTS_N][3])
     double time = wb_robot_get_time() - start_time; // SECONDS
     double end_crit;
 
-    if (TRAJECTORY == 1) end_crit = 115;
+    if (TRAJECTORY == 1) end_crit = 115;  // TO DO: change this to same as flocking end criterion
     if (TRAJECTORY == 2) end_crit = 107;
 
     if (time <= end_crit)

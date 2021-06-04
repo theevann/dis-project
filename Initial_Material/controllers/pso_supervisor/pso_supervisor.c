@@ -28,9 +28,6 @@
 
 #define NEIGHBORHOOD STANDARD
 
-/* Fitness definitions */
-#define FIT_T 10 // Time of simualtion to run for fitness during optimization
-
 #define FINALRUNS 5
 #define RADIUS 0.8
 
@@ -103,6 +100,7 @@ void get_absolute_position()
 int update_metric(int task)
 {
     // Compute the metric for the corresponding task
+    // TO DO: add localization metric to merge supervisors ?
     if (task == 1)
     {
         return update_flocking_metric(loc_abs);
@@ -120,70 +118,74 @@ int update_metric(int task)
 /* MAIN - Distribute and test controllers */
 int main()
 {
-    double weights[DATASIZE];    // Optimized result
-    double buffer[255]; // Buffer for emitter
-    int i, j;        // Counter variables
+    if (PSO) {
+        double weights[DATASIZE];    // Optimized result
+        double buffer[255]; // Buffer for emitter
+        int i, j;        // Counter variables
 
-    /* Initialisation */
-    init_super();
-    wb_robot_step(256);
+        /* Initialisation */
+        init_super();
+        wb_robot_step(256);
 
 
-    double fit;         // Fitness of the current FINALRUN
-    double endfit;      // Best fitness over 10 runs
-    double f;           // Evaluated fitness (modified by fitness() )
-    double bestfit, bestw[DATASIZE];
+        double fit;         // Fitness of the current FINALRUN
+        double endfit;      // Best fitness over 10 runs
+        double f;           // Evaluated fitness (modified by fitness() )
+        double bestfit, bestw[DATASIZE];
 
-    /* Evolve controllers */
-    endfit = 0.0;
-    bestfit = 0.0;
+        /* Evolve controllers */
+        endfit = 0.0;
+        bestfit = 0.0;
 
-    // Do 10 runs and send the best controller found to the robot
-    for (j = 0; j < 10; j++)
-    {
-        // Get result of optimization
-        pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, ITS, DATASIZE, &fitness, weights);
-
-        printf("GOT PSO\n");
-
-        fit = 0.0;
-        // Run FINALRUN tests and calculate average
-        for (i = 0; i < FINALRUNS; i++)
+        // Do 10 runs and send the best controller found to the robot
+        for (j = 0; j < 10; j++)
         {
-            f = fitness(weights);
-            fit += f;
+            printf("Started PSO Optimization \n");
+
+            // Get result of optimization
+            pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, ITS, DATASIZE, &fitness, weights);
+
+            printf("GOT PSO\n");
+
+            fit = 0.0;
+            // Run FINALRUN tests and calculate average
+            for (i = 0; i < FINALRUNS; i++)
+            {
+                f = fitness(weights);
+                fit += f;
+            }
+            fit /= FINALRUNS;
+
+
+            // Check for new best fitness
+            if (fit > bestfit)
+            {
+                bestfit = fit;
+                copyParticle(bestw, weights);
+            }
+
+            printf("Performance of the best solution: %.3f\n", fit);
+            endfit += fit / 10; // average over the 10 runs
         }
-        fit /= FINALRUNS;
 
+        printf("~~~~~~~~ Optimization finished.\n");
+        printf("Best performance: %.3f\n", bestfit);
+        printf("Average performance: %.3f\n", endfit);
 
-        // Check for new best fitness
-        if (fit > bestfit)
-        {
-            bestfit = fit;
-            copyParticle(bestw, weights);
-        }
+        /* Send best controller to robots */
 
-        printf("Performance of the best solution: %.3f\n", fit);
-        endfit += fit / 10; // average over the 10 runs
+        for (j = 0; j < DATASIZE; j++)
+            buffer[j] = bestw[j];
+        buffer[DATASIZE] = 1000000;
+
+        wb_emitter_send(emitter, (void *)buffer, (DATASIZE + 1) * sizeof(double));
+
+        return 0;
     }
-
-    printf("~~~~~~~~ Optimization finished.\n");
-    printf("Best performance: %.3f\n", bestfit);
-    printf("Average performance: %.3f\n", endfit);
-
-    /* Send best controller to robots */
-
-    for (j = 0; j < DATASIZE; j++)
-        buffer[j] = bestw[j];
-    buffer[DATASIZE] = 1000000;
-
-    wb_emitter_send(emitter, (void *)buffer, (DATASIZE + 1) * sizeof(double));
-
-    return 0;
 }
 
 
-// Makes sure no robots are overlapping        // TODO: add verification that there is no obstacle there
+    // Makes sure no robots are overlapping        // TODO: add verification that there is no obstacle there
 char valid_locs(int rob_id, int *j)
 {
     for (int i = 0; i < ROBOTS_N; i++)
@@ -227,6 +229,8 @@ void random_pos(int numRobs)
             loc[i][0] = leader_pos[0] + (i % 2) * 0.2 + j * 0.03; // add small values to find new places without robots and obstacles
             loc[i][2] = leader_pos[1] + (i / 2) * 0.2 + j * 0.03; // division will result in an integer
         } while (!valid_locs(i, &j));
+
+        // TO DO: set migratory goal randomly
         
         //printf("%d at %.2f, %.2f\n", rob_id, loc[rob_id][0], loc[rob_id][2]);
         wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robots[i], "translation"), loc[i]);
@@ -248,6 +252,11 @@ double fitness(double weights[DATASIZE])
 
     for (int i = 0; i < DATASIZE; i++)
         buffer[i+2] = weights[i];
+
+    // printf("Sending new weights: \n");
+    // for (int i=0; i<DATASIZE; i++)
+    //     printf("%f - ",weights[i]);
+    // printf("\n");
 
     /* Send data to robots */
     // Message: always sending double[],

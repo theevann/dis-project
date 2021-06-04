@@ -19,6 +19,7 @@
 #include "odometry.h"
 #include "kalman_acc.h"
 #include "kalman_vel.h"
+#include "../pso/pso.h"
 
 
 // Choose a localization technique
@@ -57,6 +58,14 @@ double last_gps_time_sec = 0.0f;
 static int robot_id, robot_flock_id;
 int time_step;
 
+// For PSO weights
+static double pso_weights[DATASIZE];
+static bool new_weights = false;
+static double dispersion_w;
+static double cohesion_w;
+static double migration_w;
+static double dispersion_t;
+
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
 WbDeviceTag dev_left_encoder;
@@ -87,6 +96,12 @@ void init_variables()
     double gps_init[] = {pos.x, 0, -pos.y};
     memcpy(meas.gps, gps_init, sizeof(meas.gps));
     memcpy(meas.prev_gps, gps_init, sizeof(meas.gps));
+
+    // Flocking parameters
+    dispersion_w = DISPERSION_WEIGHT;
+    cohesion_w = COHESION_WEIGHT;
+    migration_w = MIGRATION_WEIGHT;
+    dispersion_t = DISPERSION_THRESHOLD;
 }
 
 
@@ -227,7 +242,7 @@ void reynolds(float* msl, float* msr)
 		
         // Dispersion
         norm = norm_pos(flock_rpos[i]);
-        if (norm < DISPERSION_THRESHOLD)
+        if (norm < dispersion_t)
         {
             dispersion.x -= norm * sign(flock_rpos[i].x) / (abs(flock_rpos[i].x) + 0.5);
             dispersion.y -= norm * sign(flock_rpos[i].y) / (abs(flock_rpos[i].y) + 0.5);
@@ -257,8 +272,8 @@ void reynolds(float* msl, float* msr)
 
 
     // Aggregate
-    new_speed.x = dispersion.x * DISPERSION_WEIGHT + cohesion.x * COHESION_WEIGHT + migration.x * MIGRATION_WEIGHT;
-    new_speed.y = dispersion.y * DISPERSION_WEIGHT + cohesion.y * COHESION_WEIGHT + migration.y * MIGRATION_WEIGHT;
+    new_speed.x = dispersion.x * dispersion_w + cohesion.x * cohesion_w + migration.x * migration_w;
+    new_speed.y = dispersion.y * dispersion_w + cohesion.y * cohesion_w + migration.y * migration_w;
 
 
     // Momentum (smoothen the trajectory)
@@ -270,9 +285,9 @@ void reynolds(float* msl, float* msr)
     vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y, false);
 
     if (robot_id == 10) {
-        printf("_\nCohesion %f, %f\n", cohesion.x * COHESION_WEIGHT, cohesion.y * COHESION_WEIGHT);
-        printf("Dispersion %f, %f\n", dispersion.x * DISPERSION_WEIGHT, dispersion.y * DISPERSION_WEIGHT);
-        printf("Migration %f, %f\n", migration.x * MIGRATION_WEIGHT, migration.y * MIGRATION_WEIGHT);
+        printf("_\nCohesion %f, %f\n", cohesion.x * cohesion_w, cohesion.y * cohesion_w);
+        printf("Dispersion %f, %f\n", dispersion.x * dispersion_w, dispersion.y * dispersion_w);
+        printf("Migration %f, %f\n", migration.x * migration_w, migration.y * migration_w);
         printf("Reynold MSL: %f MSR: %f\n", *msl, *msr);
     }
 }
@@ -313,65 +328,114 @@ void formation(float* msl, float* msr)
 
 void send_ping_message()
 {
-    char robot_id_str[4];
-    sprintf(robot_id_str, "%.2d", robot_id);
-    wb_emitter_send(emitter, robot_id_str, strlen(robot_id_str));
+    //char robot_id_str[4];
+    double buffer[255];
+    // prepended 0 for robot identification, 1 for message ping
+    //sprintf(robot_id_str, "0#1#%d", robot_id);  // change here
+    buffer[0] = 0;
+    buffer[1] = 1;
+    buffer[2] = robot_id;
+
+    /* Send ping */
+    wb_emitter_send(emitter, (void *)buffer, 3 * sizeof(double));
+    //wb_emitter_send(emitter, robot_id_str, strlen(robot_id_str));
 }
 
-
-void receive_ping_messages()
+void process_ping_messages(double* buffer)
 {
-    const double *message_direction;
-    double message_rssi;  // Received Signal Strength indicator
-
-    char *inbuffer; // Buffer to receive the sender id
     int sender_id, sender_flock_id, sender_flocking_group;
 
+    const double *message_direction;
+    double message_rssi;  // Received Signal Strength indicator
     double theta, range;
     double dx, dy, rx, ry;
 
+    sender_id = buffer[2];
+    sender_flock_id = sender_id % FLOCK_SIZE;
+    sender_flocking_group = sender_id / FLOCK_SIZE;
+
+    if (sender_flocking_group != flocking_group) {
+        return;
+    }
+
+    message_direction = wb_receiver_get_emitter_direction(receiver);
+    message_rssi = wb_receiver_get_signal_strength(receiver);
+
+    dx = -message_direction[2];
+    dy = -message_direction[0];
+
+    theta = atan2(dy, dx) + pos.heading + M_PI / 2; // find the relative angle
+    range = sqrt(1 / message_rssi);
+
+    rx = range * cos(theta);        // relative x pos
+    ry = range * sin(theta);        // relative y pos
+    
+    // printf("_\nReceive ping from robot %d, rx: %f, ry: %f\n", sender_id, rx, ry);
+    // printf("theta: %f (%f), range: %f\n", theta, atan2(y, x), range);
+    // printf("y %f, x %f\n", y, x);
+
+    // Get position update
+    flock_prev_rpos[sender_flock_id].x = flock_rpos[sender_flock_id].x;
+    flock_prev_rpos[sender_flock_id].y = flock_rpos[sender_flock_id].y;
+    flock_prev_rpos[sender_flock_id].heading = flock_rpos[sender_flock_id].heading;
+
+    flock_rpos[sender_flock_id].x = rx;        // rel x pos
+    flock_rpos[sender_flock_id].y = ry;        // rel y pos
+    flock_rpos[sender_flock_id].heading = theta;        // rel theta pos
+
+    // relative_speed[sender_id][0] = (1. / DELTA_T) * (flock_pos[sender_id].x - flock_prev_pos[sender_id].x);
+    // relative_speed[sender_id][1] = (1. / DELTA_T) * (flock_pos[sender_id].y - flock_prev_pos[sender_id].y);
+}
+
+
+void receive_messages()
+{
+    // Buffer to receive the sender id
+    double *inbuffer;
+    int sender_type, message_type;
+
     while (wb_receiver_get_queue_length(receiver) > 0)
     {
-        inbuffer = (char *)wb_receiver_get_data(receiver);
-        sender_id = atoi(inbuffer);
-        sender_flock_id = sender_id % FLOCK_SIZE;
-        sender_flocking_group = sender_id / FLOCK_SIZE;
+        inbuffer = (double *)wb_receiver_get_data(receiver);
+        sender_type = inbuffer[0];
+        message_type = inbuffer[1];
 
-        if (sender_flocking_group != flocking_group) {
-            wb_receiver_next_packet(receiver);
-            continue;
+        // If sender is a robot and message is ping message: process ping message
+        if (sender_type == 0 && message_type == 1) {
+            process_ping_messages(inbuffer);
         }
-
-        message_direction = wb_receiver_get_emitter_direction(receiver);
-        message_rssi = wb_receiver_get_signal_strength(receiver);
-
-        dx = -message_direction[2];
-        dy = -message_direction[0];
-
-        theta = atan2(dy, dx) + pos.heading + M_PI / 2; // find the relative angle
-        range = sqrt(1 / message_rssi);
-
-        rx = range * cos(theta);        // relative x pos
-        ry = range * sin(theta);        // relative y pos
-        
-        // printf("_\nReceive ping from robot %d, rx: %f, ry: %f\n", sender_id, rx, ry);
-        // printf("theta: %f (%f), range: %f\n", theta, atan2(y, x), range);
-        // printf("y %f, x %f\n", y, x);
-
-        // Get position update
-        flock_prev_rpos[sender_flock_id].x = flock_rpos[sender_flock_id].x;
-        flock_prev_rpos[sender_flock_id].y = flock_rpos[sender_flock_id].y;
-        flock_prev_rpos[sender_flock_id].heading = flock_rpos[sender_flock_id].heading;
-
-        flock_rpos[sender_flock_id].x = rx;        // rel x pos
-        flock_rpos[sender_flock_id].y = ry;        // rel y pos
-        flock_rpos[sender_flock_id].heading = theta;        // rel theta pos
-
-        // relative_speed[sender_id][0] = (1. / DELTA_T) * (flock_pos[sender_id].x - flock_prev_pos[sender_id].x);
-        // relative_speed[sender_id][1] = (1. / DELTA_T) * (flock_pos[sender_id].y - flock_prev_pos[sender_id].y);
-
+        // sender is supervisor and message type is weights: get new weights
+        else if (sender_type == 1 && message_type == 0) {
+            for (int i = 0; i < DATASIZE; i++) 
+                pso_weights[i] = inbuffer[i+2] ;
+            new_weights = true;
+        }
+        else {
+            printf("Warning: Flockform controller should not receive this message\n");
+        }
         wb_receiver_next_packet(receiver);
     }
+}
+
+void set_robot_weights() {
+
+    printf("Setting new weights: \n");
+    for (int i=0; i<DATASIZE; i++)
+        printf("%f - ",pso_weights[i]);
+    printf("\n");
+
+    if (TASK == 1) {
+        dispersion_w = pso_weights[0];
+        cohesion_w = pso_weights[1];
+        migration_w = pso_weights[2];
+        dispersion_t = pso_weights[3];
+    }
+    else if (TASK == 2) {
+        printf("Setting weights for formation not implemented yet");
+    }
+    else printf("Not setting weights for the localiation task");
+
+
 }
 
 
@@ -391,6 +455,10 @@ int main()
     {
         // printf("\n \n");
         // printf("\nNEW TIMESTEP\n");
+        if (PSO && new_weights && TASK > 0) {
+            set_robot_weights();
+            new_weights = false;
+        }
 
         // READ SENSORS
         get_encoder(dev_left_encoder, dev_right_encoder, &(meas.prev_left_enc), &(meas.prev_right_enc), &(meas.left_enc), &(meas.right_enc));
@@ -435,7 +503,7 @@ int main()
         if (TASK == 1 || robot_flock_id == LEADER_ID)
             send_ping_message();
         if (TASK > 0)
-            receive_ping_messages();
+            receive_messages();
 
 
         // DEFINE WHEEL SPEED
