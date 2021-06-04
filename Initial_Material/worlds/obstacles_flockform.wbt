@@ -521,10 +521,13 @@ DEF rock Solid {
 }
 DEF SUPERVISOR Robot {
   children [
+    Emitter {
+      channel 1
+    }
     Receiver {
     }
   ]
-  controller "supervisor"
+  controller "pso_supervisor"
   supervisor TRUE
 }
 DEF epuck0 Robot {
@@ -1906,7 +1909,7 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "flocking_controller"
+  controller "flockform_controller"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
@@ -3288,7 +3291,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "flocking_controller"
+  controller "flockform_controller"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -4670,7 +4673,7 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "flocking_controller"
+  controller "flockform_controller"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
@@ -6052,7 +6055,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "flocking_controller"
+  controller "flockform_controller"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -7434,6 +7437,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "flocking_controller"
+  controller "flockform_controller"
   cpuConsumption 1.11
 }

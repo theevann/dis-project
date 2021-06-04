@@ -45,6 +45,10 @@ int flocking_group;
 position_t previous_speed = {0, 0, 0};
 static position_t flock_prev_rpos[ROBOTS_N], flock_rpos[ROBOTS_N];
 
+// For Formation Behaviour
+static const float rel_formation_pos[5][2] = {{0., 0.}, {-0.2, -0.2}, {-0.2, 0.2}, {0.2, -0.2}, {0.2, 0.2}}; // TO BE DEFINED
+// static const float rel_formation_pos[5][2] = {{0., 0.}, {-0.4, 0}, {-0.2, 0}, {-0.2, -0.2}, {-0.2, 0.2}}; // TO BE DEFINED
+
 
 static measurement_t meas;
 static position_t initial_pos, pos, speed;
@@ -146,7 +150,7 @@ double norm_pos(position_t pos)
 }
 
 
-void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy)
+void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy, bool use_range)
 {
     // Compute wanted position in robots coordinate
     float heading = pos.heading + M_PI / 2;
@@ -159,21 +163,26 @@ void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy)
     float bearing = atan2(y, x);        // Orientation of the wanted position
 
     // Compute forward control
-    // float u = Ku * range * cosf(bearing)  *  10;
     float u = Ku * cosf(bearing);
+    if (use_range)
+        u *= range * 5;
+        // u *= range * 3;
+
     // Compute rotational control
-    float w = Kw * bearing;
+    // float w = Kw * bearing ;
+    float w = Kw * bearing * 2;
 
     // Convert to wheel speeds!
     *msl = (u - AXLE_LENGTH * w / 2.0) * 2000;
     *msr = (u + AXLE_LENGTH * w / 2.0) * 2000;
 
-    // printf("Reynolds MSL: %f MSR: %f\n", *msl, *msr);
-    // printf("rob x: %f, rob y: %f, rob theta: %f (%f)\n", pos.x, pos.y, pos.heading + M_PI / 2, pos.heading);
-    // printf("x: %f, y: %f\n", x, y);
-    if (robot_id == 10)
+    if (robot_id == 10) {
+        printf("Formation MSL: %f MSR: %f\n", *msl, *msr);
+        // printf("rob x: %f, rob y: %f, rob theta: %f (%f)\n", pos.x, pos.y, pos.heading + M_PI / 2, pos.heading);
+        // printf("x: %f, y: %f\n", x, y);
         printf("range: %f, bearing: %f\n", range, bearing);
-    // printf("u: %f, w: %f\n", u, w);
+        // printf("u: %f, w: %f\n", u, w);
+    }
     // limit(msl, MAX_SPEED);
     // limit(msr, MAX_SPEED);
     // printf("After Reynolds MSL: %d MSR: %d\n", *msl, *msr);
@@ -258,7 +267,7 @@ void reynolds(float* msl, float* msr)
 
 
     // Update msl and msr
-    vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y);
+    vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y, false);
 
     if (robot_id == 10) {
         printf("_\nCohesion %f, %f\n", cohesion.x * COHESION_WEIGHT, cohesion.y * COHESION_WEIGHT);
@@ -266,6 +275,39 @@ void reynolds(float* msl, float* msr)
         printf("Migration %f, %f\n", migration.x * MIGRATION_WEIGHT, migration.y * MIGRATION_WEIGHT);
         printf("Reynold MSL: %f MSR: %f\n", *msl, *msr);
     }
+}
+
+
+void leader_follower_basic(float* msl, float* msr)
+{
+    // If leader
+    if (robot_flock_id == LEADER_ID) {
+        vector_to_wheelspeed(msl, msr, MIGR[flocking_group].x - pos.x, MIGR[flocking_group].y - pos.y, false);
+        return;
+    }
+    
+    // If follower
+    vector_to_wheelspeed(msl, msr, flock_rpos[LEADER_ID].x, flock_rpos[LEADER_ID].y, true);
+}
+
+
+void leader_follower_positioned(float* msl, float* msr)
+{
+    // If leader
+    if (robot_flock_id == LEADER_ID) {
+        vector_to_wheelspeed(msl, msr, MIGR[flocking_group].x - pos.x, MIGR[flocking_group].y - pos.y, false);
+        return;
+    }
+    
+    // If follower
+    vector_to_wheelspeed(msl, msr, flock_rpos[LEADER_ID].x + rel_formation_pos[robot_flock_id][0], flock_rpos[LEADER_ID].y + rel_formation_pos[robot_flock_id][1], true);
+}
+
+
+void formation(float* msl, float* msr)
+{
+    // leader_follower_basic(msl, msr);
+    leader_follower_positioned(msl, msr);
 }
 
 
@@ -319,9 +361,11 @@ void receive_ping_messages()
         // Get position update
         flock_prev_rpos[sender_flock_id].x = flock_rpos[sender_flock_id].x;
         flock_prev_rpos[sender_flock_id].y = flock_rpos[sender_flock_id].y;
+        flock_prev_rpos[sender_flock_id].heading = flock_rpos[sender_flock_id].heading;
 
         flock_rpos[sender_flock_id].x = rx;        // rel x pos
         flock_rpos[sender_flock_id].y = ry;        // rel y pos
+        flock_rpos[sender_flock_id].heading = theta;        // rel theta pos
 
         // relative_speed[sender_id][0] = (1. / DELTA_T) * (flock_pos[sender_id].x - flock_prev_pos[sender_id].x);
         // relative_speed[sender_id][1] = (1. / DELTA_T) * (flock_pos[sender_id].y - flock_prev_pos[sender_id].y);
@@ -358,9 +402,7 @@ int main()
         bool calibrating = ACC_CAL && (time_now_s < TIME_CAL);
 
         if (calibrating)
-        {
             calibrate_acc(meas.acc, meas.acc_mean);
-        }
 
         // UPDATE POSITION ESTIMATION
         if (LOCALIZATION_METHOD == ENCODER)
@@ -390,18 +432,19 @@ int main()
         
 
         // SEND & RECEIVE PINGS
-        send_ping_message();
-        receive_ping_messages();
+        if (TASK == 1 || robot_flock_id == LEADER_ID)
+            send_ping_message();
+        if (TASK > 0)
+            receive_ping_messages();
 
 
         // DEFINE WHEEL SPEED
         float msl, msr; // Motor speed left and right
         float msl_w, msr_w;
         float braiten_msl = 0, braiten_msr = 0;
-        float reynolds_msl = 0, reynolds_msr = 0;
+        float group_motion_msl = 0, group_motion_msr = 0;
 
         braitenberg(&braiten_msl, &braiten_msr);
-        reynolds(&reynolds_msl, &reynolds_msr);
 
         if (time_now_s - last_obstacle_avoidance < TIME_IN_OBSTACLE_AVOIDANCE)
         {
@@ -415,10 +458,17 @@ int main()
             msl = braiten_msl + BIAS_SPEED;
             msr = braiten_msr + BIAS_SPEED;
         }
-        else
+        else if (TASK == 1)
         {
-            msl = reynolds_msl + braiten_msl + BIAS_SPEED / 4;
-            msr = reynolds_msr + braiten_msr + BIAS_SPEED / 4;
+            reynolds(&group_motion_msl, &group_motion_msr);
+            msl = group_motion_msl + braiten_msl + BIAS_SPEED / 4;
+            msr = group_motion_msr + braiten_msr + BIAS_SPEED / 4;
+        }
+        else if (TASK == 2)
+        {
+            formation(&group_motion_msl, &group_motion_msr);
+            msl = group_motion_msl;
+            msr = group_motion_msr;
         }
 
         if (robot_id == 10)
@@ -427,8 +477,8 @@ int main()
         clamp(&msl, MAX_SPEED);
         clamp(&msr, MAX_SPEED);
 
-        msl_w = msl * (MAX_SPEED_WEB-0.01) / MAX_SPEED; // TODO: 1000 should probably be MAX_SPEED
-        msr_w = msr * (MAX_SPEED_WEB-0.01) / MAX_SPEED;
+        msl_w = msl * (MAX_SPEED_WEB - EPS) / MAX_SPEED;
+        msr_w = msr * (MAX_SPEED_WEB - EPS) / MAX_SPEED;
 
         wb_motor_set_velocity(dev_left_motor, msl_w);
         wb_motor_set_velocity(dev_right_motor, msr_w);
