@@ -10,7 +10,10 @@ long metric_stepcount = 0;
 
 
 static float prev_center[2] = {-1000, -1000};
-static const float rel_formation_pos[5][2] = {{0., 0.}, {1.0, 1.0}, {0.5, 0.5}, {0.4, 0.4}, {1.5, 1.5}}; // TO BE DEFINED
+
+
+double d_flock = D_FLOCK; //TODO: ! constants changing with PSO
+//TODO: ! Not handling groups
 
 
 int update_localization_metric(float loc_abs[ROBOTS_N][3], float loc_est[ROBOTS_N][3])
@@ -18,7 +21,7 @@ int update_localization_metric(float loc_abs[ROBOTS_N][3], float loc_est[ROBOTS_
     double time = wb_robot_get_time() - start_time; // SECONDS
     double end_crit;
 
-    if (TRAJECTORY == 1) end_crit = 115;
+    if (TRAJECTORY == 1) end_crit = 115; //TODO: Take into account start time (eg accelerometer calibration ?)
     if (TRAJECTORY == 2) end_crit = 107;
 
 
@@ -47,9 +50,11 @@ int update_localization_metric(float loc_abs[ROBOTS_N][3], float loc_est[ROBOTS_
 int update_flocking_metric(float loc_abs[ROBOTS_N][3])
 {
     int i, j;
+    double time = wb_robot_get_time() - start_time; // SECONDS
     float flock_center[2] = {0., 0.};
-    float dist_to_goal[2];
-    double end_crit = 0;
+    float migr[2] = {MIGR[0].x, MIGR[0].y};
+    float dist_to_goal;
+    bool end_crit = false;
 
     // Compute center of flock
     for (i = 0; i < ROBOTS_N; i++)
@@ -62,15 +67,14 @@ int update_flocking_metric(float loc_abs[ROBOTS_N][3])
     flock_center[1] /= (float)ROBOTS_N;
 
     // Compute distance to goal
-    dist_to_goal[0] = fabsf(flock_center[0] - MIGR[0].x);
-    dist_to_goal[1] = fabsf(flock_center[1] - MIGR[0].y);
+    dist_to_goal = dist(flock_center, migr);
 
-    if (dist_to_goal[0] < .2 && dist_to_goal[1] < .2  && !PSO)  // TODO: define range
-        end_crit = 1;
-
-    if (PSO) {
-        if (wb_robot_get_time() - start_time >= FIT_T)
-            end_crit = 1;
+    if (!PSO)
+        end_crit = dist_to_goal < .05;
+    else
+    {
+        if (time >= FIT_T)
+            end_crit = true;
     }
 
     if (!end_crit)
@@ -140,12 +144,24 @@ int update_flocking_metric(float loc_abs[ROBOTS_N][3])
 int update_formation_metric(float loc_abs[ROBOTS_N][3])
 {
     double time = wb_robot_get_time() - start_time; // SECONDS
-    double end_crit;
+    float migr[2] = {MIGR[0].x, MIGR[0].y};
+    float dist_to_goal;
+    bool end_crit;
 
-    if (TRAJECTORY == 1) end_crit = 115;  // TO DO: change this to same as flocking end criterion
-    if (TRAJECTORY == 2) end_crit = 107;
 
-    if (time <= end_crit)
+    // Compute distance to goal
+    dist_to_goal = dist(loc_abs[LEADER_ID], migr);
+
+    if (!PSO)
+        end_crit = dist_to_goal < .05;
+    else
+    {
+        if (time >= FIT_T)
+            end_crit = true;
+    }
+
+
+    if (!end_crit)
     {
         float formation_center[2] = {0, 0};
         float rob_formation_pos[2];
@@ -164,8 +180,8 @@ int update_formation_metric(float loc_abs[ROBOTS_N][3])
         for (int i = 0; i < ROBOTS_N; i++)
         {
             // Calculate each robot's goal position on this timestep
-            rob_formation_pos[0] = loc_abs[LEADER_ID][0] + rel_formation_pos[i][0];
-            rob_formation_pos[1] = loc_abs[LEADER_ID][1] + rel_formation_pos[i][1];
+            rob_formation_pos[0] = loc_abs[LEADER_ID][0] + FORM_REL_POS[i][0];
+            rob_formation_pos[1] = loc_abs[LEADER_ID][1] + FORM_REL_POS[i][1];
 
             // Distance measure to its goal position for each robot
             fit_d += dist(loc_abs[i], rob_formation_pos);

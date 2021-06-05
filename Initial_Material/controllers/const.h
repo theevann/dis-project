@@ -9,7 +9,7 @@
 #define PSO true
 #define ARENA_SIZE_X 5 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
 #define ARENA_SIZE_Y 3 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
-#define FIT_T 5       // Time of simulation to run for fitness during optimization
+#define FIT_T 20       // Time of simulation to run for fitness during optimization
 
 #if WORLD == 1
     #define ROBOTS_N 5
@@ -48,6 +48,7 @@
 
 extern const position_t MIGR[];
 extern const position_t INIT_POS[];
+extern const float FORM_REL_POS[5][2];
 
 // #define COHESION_WEIGHT 0.2
 // #define MIGRATION_WEIGHT 0.2
@@ -61,13 +62,13 @@ extern const position_t INIT_POS[];
 #define DISPERSION_THRESHOLD 0.2
 #define SPEED_MOMENTUM 0.8
 
-#define D_FLOCK DISPERSION_THRESHOLD    // TO DEFINE: targeted flocking distance
-#define D_MAX_FLOCK 0.1 // TO DEFINE: maximum distance travelled in 1 timestep: timestep * maximum speed
+#define D_FLOCK DISPERSION_THRESHOLD    // Targeted flocking distance // TODO:
+#define D_MAX_FLOCK 0.13 // TODO: check - maximum distance travelled in 1 timestep: timestep * maximum speed
 
 
 /* FORMATION */
 #define LEADER_ID 0
-#define D_MAX_FORM 2 // TO DEFINE: maximum distance travelled in 1 timestep: timestep * maximum speed
+#define D_MAX_FORM 0.1 // TODO: maximum distance travelled in 1 timestep: timestep * maximum speed
 
 
 /* MATH HELPER */

@@ -38,21 +38,18 @@
 
 
 // For Obstacle Avoidance Behaviour
-double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
+const double braiten_weights[16] = {0.5, 0.4, 0.3, 0.1, -0.1, -0.3, -0.4, -0.5, -0.5, -0.4, -0.3, -0.1, 0.1, 0.3, 0.4, 0.5};
 double last_obstacle_avoidance = -100.;
 int flocking_group;
 
 // For Flocking Behaviour
-position_t previous_speed = {0, 0, 0};
+const position_t zero_pos = {0, 0, 0};
+position_t previous_reynolds = {0, 0, 0};
 static position_t flock_prev_rpos[ROBOTS_N], flock_rpos[ROBOTS_N];
-
-// For Formation Behaviour
-static const float rel_formation_pos[5][2] = {{0., 0.}, {-0.2, -0.2}, {-0.2, 0.2}, {0.2, -0.2}, {0.2, 0.2}}; // TO BE DEFINED
-// static const float rel_formation_pos[5][2] = {{0., 0.}, {-0.4, 0}, {-0.2, 0}, {-0.2, -0.2}, {-0.2, 0.2}}; // TO BE DEFINED
 
 
 static measurement_t meas;
-static position_t initial_pos, pos, speed;
+static position_t pos, speed;
 
 double last_gps_time_sec = 0.0f;
 static int robot_id, robot_flock_id;
@@ -65,6 +62,7 @@ static double dispersion_w;
 static double cohesion_w;
 static double migration_w;
 static double dispersion_t;
+static double speed_momentum;
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -75,6 +73,37 @@ WbDeviceTag dev_right_motor;
 WbDeviceTag emitter;
 WbDeviceTag receiver;
 WbDeviceTag dist_sensor[NB_SENSORS];
+
+
+
+void reset_variables()
+{
+    double current_time = wb_robot_get_time();
+    last_gps_time_sec = current_time;
+    last_obstacle_avoidance = current_time - 100.;
+
+    // Initialize speed to zero
+    memcpy(&speed, &zero_pos, sizeof(zero_pos));
+
+    // Initialize flocking vector and relative positioning
+    memcpy(&previous_reynolds, &zero_pos, sizeof(zero_pos));
+
+    for (int i = 0; i < ROBOTS_N; i++) {
+        memcpy(&(flock_prev_rpos[ROBOTS_N]), &zero_pos, sizeof(zero_pos));
+        memcpy(&(flock_rpos[ROBOTS_N]), &zero_pos, sizeof(zero_pos));
+    }
+
+    // Initialize the gps, acc & odo measurements
+    double gps_init[] = {pos.x, 0, -pos.y};
+    memcpy(meas.gps, gps_init, sizeof(meas.gps));
+    memcpy(meas.prev_gps, gps_init, sizeof(meas.gps));
+    memcpy(meas.acc, &zero_pos, sizeof(meas.acc));
+
+    meas.prev_left_enc = 0;
+    meas.prev_right_enc = 0;
+    meas.left_enc = 0;
+    meas.right_enc = 0;
+}
 
 
 void init_variables()
@@ -89,19 +118,17 @@ void init_variables()
     flocking_group = robot_id / FLOCK_SIZE;
 
     // Initialize the position
-    initial_pos = INIT_POS[robot_id];
-    memcpy(&pos, &initial_pos, sizeof(initial_pos));
+    memcpy(&pos, &(INIT_POS[robot_id]), sizeof(INIT_POS[robot_id]));
 
-    // Initialize the gps measurements
-    double gps_init[] = {pos.x, 0, -pos.y};
-    memcpy(meas.gps, gps_init, sizeof(meas.gps));
-    memcpy(meas.prev_gps, gps_init, sizeof(meas.gps));
+    // Initialize the measurements, 
+    reset_variables();
 
     // Flocking parameters
     dispersion_w = DISPERSION_WEIGHT;
     cohesion_w = COHESION_WEIGHT;
     migration_w = MIGRATION_WEIGHT;
     dispersion_t = DISPERSION_THRESHOLD;
+    speed_momentum = SPEED_MOMENTUM;
 }
 
 
@@ -277,12 +304,12 @@ void reynolds(float* msl, float* msr)
 
 
     // Momentum (smoothen the trajectory)
-    previous_speed.x = previous_speed.x * SPEED_MOMENTUM + new_speed.x * (1-SPEED_MOMENTUM);
-    previous_speed.y = previous_speed.y * SPEED_MOMENTUM + new_speed.y * (1-SPEED_MOMENTUM);
+    previous_reynolds.x = previous_reynolds.x * SPEED_MOMENTUM + new_speed.x * (1-SPEED_MOMENTUM);
+    previous_reynolds.y = previous_reynolds.y * SPEED_MOMENTUM + new_speed.y * (1-SPEED_MOMENTUM);
 
 
     // Update msl and msr
-    vector_to_wheelspeed(msl, msr, previous_speed.x, previous_speed.y, false);
+    vector_to_wheelspeed(msl, msr, previous_reynolds.x, previous_reynolds.y, false);
 
     if (robot_id == 10) {
         printf("_\nCohesion %f, %f\n", cohesion.x * cohesion_w, cohesion.y * cohesion_w);
@@ -315,7 +342,7 @@ void leader_follower_positioned(float* msl, float* msr)
     }
     
     // If follower
-    vector_to_wheelspeed(msl, msr, flock_rpos[LEADER_ID].x + rel_formation_pos[robot_flock_id][0], flock_rpos[LEADER_ID].y + rel_formation_pos[robot_flock_id][1], true);
+    vector_to_wheelspeed(msl, msr, flock_rpos[LEADER_ID].x + FORM_REL_POS[robot_flock_id][0], flock_rpos[LEADER_ID].y + FORM_REL_POS[robot_flock_id][1], true);
 }
 
 
@@ -328,18 +355,20 @@ void formation(float* msl, float* msr)
 
 void send_ping_message()
 {
-    //char robot_id_str[4];
     double buffer[255];
-    // prepended 0 for robot identification, 1 for message ping
-    //sprintf(robot_id_str, "0#1#%d", robot_id);  // change here
-    buffer[0] = 0;
-    buffer[1] = 1;
+    // prepended 1 for message ping, -1 for sending to all
+    buffer[0] = 1;
+    buffer[1] = -1;
     buffer[2] = robot_id;
 
     /* Send ping */
     wb_emitter_send(emitter, (void *)buffer, 3 * sizeof(double));
+
+    //char robot_id_str[4];
+    //sprintf(robot_id_str, "0#1#%d", robot_id);  // change here
     //wb_emitter_send(emitter, robot_id_str, strlen(robot_id_str));
 }
+
 
 void process_ping_messages(double* buffer)
 {
@@ -392,50 +421,83 @@ void receive_messages()
 {
     // Buffer to receive the sender id
     double *inbuffer;
-    int sender_type, message_type;
+    int message_type, recipient_id;
 
     while (wb_receiver_get_queue_length(receiver) > 0)
     {
         inbuffer = (double *)wb_receiver_get_data(receiver);
-        sender_type = inbuffer[0];
-        message_type = inbuffer[1];
+        message_type = inbuffer[0];
+        recipient_id = inbuffer[1];
 
-        // If sender is a robot and message is ping message: process ping message
-        if (sender_type == 0 && message_type == 1) {
+
+        // If this message is not for us, next !
+        if (!(recipient_id == -1 || recipient_id == robot_id)) {
+            wb_receiver_next_packet(receiver);
+            continue;
+        }
+
+
+        if (message_type == 1)
+        {
+            // If message is ping message: process ping message
             process_ping_messages(inbuffer);
+            // printf("R%d: Receiving ping\n", robot_id);
         }
-        // sender is supervisor and message type is weights: get new weights
-        else if (sender_type == 1 && message_type == 0) {
-            for (int i = 0; i < DATASIZE; i++) 
-                pso_weights[i] = inbuffer[i+2] ;
+        else if (message_type == 2)
+        {
+            // Supervisor is sending pso weights: get new weights
+            for (int i = 0; i < DATASIZE; i++)
+                pso_weights[i] = inbuffer[i + 2];
             new_weights = true;
+            printf("R%d: Receiving pso weights\n", robot_id);
         }
-        else {
+        else if (message_type == 3)
+        {
+            // Supervisor is sending position
+            pos.x = inbuffer[2];
+            pos.y = inbuffer[3];
+            pos.heading = inbuffer[4];
+            printf("R%d: Receiving new position (%g, %g)\n", robot_id, pos.x, pos.y);
+        }
+        else
             printf("Warning: Flockform controller should not receive this message\n");
-        }
+
         wb_receiver_next_packet(receiver);
     }
 }
 
+
 void set_robot_weights() {
 
-    printf("Setting new weights: \n");
+    printf("R%d: Setting new weights: \n", robot_id);
     for (int i=0; i<DATASIZE; i++)
-        printf("%f - ",pso_weights[i]);
+        printf("%f - ", pso_weights[i]);
     printf("\n");
 
-    if (TASK == 1) {
+    if (TASK == 1)
+    {
         dispersion_w = pso_weights[0];
         cohesion_w = pso_weights[1];
         migration_w = pso_weights[2];
         dispersion_t = pso_weights[3];
+        speed_momentum = pso_weights[4];
     }
-    else if (TASK == 2) {
+    else if (TASK == 2)
+    {
         printf("Setting weights for formation not implemented yet");
     }
-    else printf("Not setting weights for the localiation task");
+    else
+        printf("Not setting weights for the localization task");
+}
 
 
+void init_localization() {
+    init_odometry(time_step);
+    
+    if (LOCALIZATION_METHOD == KALMAN_ACC)
+        init_kalman_acc(&pos);
+    else if(LOCALIZATION_METHOD == KALMAN_VEL)
+        init_kalman_vel(&pos);
 }
 
 
@@ -444,19 +506,17 @@ int main()
     wb_robot_init();
     init_variables();
     init_devices();
-    init_odometry(time_step);
-    
-    if (LOCALIZATION_METHOD == KALMAN_ACC)
-        init_kalman_acc(&initial_pos);
-    else if(LOCALIZATION_METHOD == KALMAN_VEL)
-        init_kalman_vel(&initial_pos);
+    init_localization();
 
     while (wb_robot_step(time_step) != -1)
     {
         // printf("\n \n");
         // printf("\nNEW TIMESTEP\n");
-        if (PSO && new_weights && TASK > 0) {
+
+        if (PSO && new_weights) {
             set_robot_weights();
+            init_localization();
+            reset_variables();
             new_weights = false;
         }
 
@@ -500,7 +560,7 @@ int main()
         
 
         // SEND & RECEIVE PINGS
-        if (TASK == 1 || robot_flock_id == LEADER_ID)
+        if (TASK == 1 || (TASK == 2 && robot_flock_id == LEADER_ID))
             send_ping_message();
         if (TASK > 0)
             receive_messages();

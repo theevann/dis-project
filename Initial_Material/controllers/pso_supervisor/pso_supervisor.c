@@ -14,9 +14,9 @@
 #define NB 1          // Number of neighbors on each side
 #define LWEIGHT 2.0   // Weight of attraction to personal best
 #define NBWEIGHT 2.0  // Weight of attraction to neighborhood best
-#define VMAX 40.0     // Maximum velocity particle can attain
-#define MININIT -20.0 // Lower bound on initialization value
-#define MAXINIT 20.0  // Upper bound on initialization value
+#define VMAX 1.0      // Maximum velocity particle can attain
+#define MININIT 0.0   // Lower bound on initialization value
+#define MAXINIT 1.0   // Upper bound on initialization value
 #define ITS 20        // Number of iterations to run
 
 
@@ -49,7 +49,7 @@ void init_super();
 void get_absolute_position();
 int update_metric(int task);
 char valid_locs(int rob_id, int *j);
-void random_pos(int);
+void random_pos();
 double fitness(double[DATASIZE]);
 
 
@@ -185,7 +185,7 @@ int main()
 }
 
 
-    // Makes sure no robots are overlapping        // TODO: add verification that there is no obstacle there
+// Makes sure no robots are overlapping        // TODO: add verification that there is no obstacle there
 char valid_locs(int rob_id, int *j)
 {
     for (int i = 0; i < ROBOTS_N; i++)
@@ -206,63 +206,85 @@ char valid_locs(int rob_id, int *j)
 
 
 // Randomly position specified robot
-void random_pos(int numRobs)
+void random_pos()
 {
     //printf("Setting random position for %d\n",rob_id);
     float leader_pos[2];
-    leader_pos[0] = randIn(-ARENA_SIZE_X / 2.0, ARENA_SIZE_X / 2.0); // TODO: Check arena dimension (it is not square !)
+    leader_pos[0] = randIn(-ARENA_SIZE_X / 2.0, ARENA_SIZE_X / 2.0);
     leader_pos[1] = randIn(-ARENA_SIZE_Y / 2.0, ARENA_SIZE_Y / 2.0);
 
     int i;
-    for (i = 0; i < numRobs; i++)
+    for (i = 0; i < ROBOTS_N; i++)
     {
         // Note: changer la rotation perd le robot qui ne peut pas se retrouver
-        // rot[i][0] = 0.0;
-        // rot[i][1] = 1.0;
-        // rot[i][2] = 0.0;
-        // rot[i][3] = 2.0 * 3.14159 * randIn(0, 1);
+        rot[i][0] = 0.0;
+        rot[i][1] = 1.0;
+        rot[i][2] = 0.0;
+        rot[i][3] = 2.0 * 3.14159 * randIn(0, 1);
 
         int j = 0;
         do
         {
             // disposition 2 by 2 0.5m apart
             loc[i][0] = leader_pos[0] + (i % 2) * 0.2 + j * 0.03; // add small values to find new places without robots and obstacles
+            loc[i][1] = 0.0;
             loc[i][2] = leader_pos[1] + (i / 2) * 0.2 + j * 0.03; // division will result in an integer
         } while (!valid_locs(i, &j));
 
-        // TO DO: set migratory goal randomly
         
-        //printf("%d at %.2f, %.2f\n", rob_id, loc[rob_id][0], loc[rob_id][2]);
+        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robots[i], "rotation"), rot[i]);
         wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robots[i], "translation"), loc[i]);
-        // wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robots[i], "rotation"), rot[i]);
+        wb_supervisor_node_reset_physics(robots[i]); // Set velocities and acceleration to 0 - Useful in case the robots fell
     }
 }
 
 
-// Distribute fitness functions among robots
 double fitness(double weights[DATASIZE])
 {
     double buffer[255];
 
-    /* Position all robots around one random spot*/
-    random_pos(ROBOTS_N);
+    /* Position all robots around one random spot */
 
-    buffer[0] = 1;
-    buffer[1] = 0;
+    random_pos();  //TODO: Random pose only in world 1 - in world 2 put them back to init_pos
+    // TODO: set migratory goal randomly
+
+
+    /* Send pso weights to robots */
+
+    buffer[0] = 2;
+    buffer[1] = -1;
 
     for (int i = 0; i < DATASIZE; i++)
         buffer[i+2] = weights[i];
 
     // printf("Sending new weights: \n");
-    // for (int i=0; i<DATASIZE; i++)
-    //     printf("%f - ",weights[i]);
+    // for (int i = 0; i < DATASIZE; i++)
+    //     printf("%f - ", weights[i]);
     // printf("\n");
 
-    /* Send data to robots */
     // Message: always sending double[],
-    // first value is: 0 for robot, 1 for supervisor
-    // second value is: 0 for sending localisation position, 1 for sending ping, 0 for pso weights
-    wb_emitter_send(emitter, (void *)buffer, (DATASIZE + 2) * sizeof(double)); // TODO: implement weights receiver at robot side
+    // First value is: 0 for robot sending localization, 1 for robot sending ping, 2 for supervisor sending pso weights, 3 for supervisor sending position
+    // Second value is recipient id: -1 = all
+    wb_emitter_send(emitter, (void *)buffer, (2 + DATASIZE) * sizeof(double));
+
+
+    /* Send their new position to robots */
+
+    for (int i = 0; i < ROBOTS_N; i++)
+    {
+        buffer[0] = 3;
+        buffer[1] = i;
+
+        get_absolute_position();
+        buffer[2] = loc_abs[i][0];
+        buffer[3] = loc_abs[i][1];
+        buffer[4] = loc_abs[i][2];
+        
+        wb_emitter_send(emitter, (void *)buffer, (2 + 3) * sizeof(double));
+    }
+
+
+    /* Compute the metric */
 
     reset_metric();
     bool running = true;

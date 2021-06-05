@@ -1,4 +1,11 @@
-#define DATASIZE 4  // if flocking then... if formation them...
+#include "../const.h"
+
+#if TASK == 1 // if flocking then...
+    #define DATASIZE 5  
+#elif TASK == 2 // if formation them...
+    #define DATASIZE 0
+#endif
+
 #define SWARMSIZE 10 
 
 // Functions
