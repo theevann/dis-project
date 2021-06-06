@@ -10,23 +10,13 @@
 #include "../pso/pso.h"
 
 
-/* PSO definitions */
-#define NB 1          // Number of neighbors on each side
-#define LWEIGHT 2.0   // Weight of attraction to personal best
-#define NBWEIGHT 2.0  // Weight of attraction to neighborhood best
-#define VMAX 1.0      // Maximum velocity particle can attain
-#define MININIT 0.0   // Lower bound on initialization value
-#define MAXINIT 1.0   // Upper bound on initialization value
-#define ITS 20        // Number of iterations to run
-
-
 /* Neighborhood types */
 #define STANDARD -1
 #define RAND_NB 0
 #define NCLOSE_NB 1
 #define FIXEDRAD_NB 2
+#define NEIGHBORHOOD STANDARD // TODO: do or delete
 
-#define NEIGHBORHOOD STANDARD
 
 #define FINALRUNS 5
 #define RADIUS 0.8
@@ -137,15 +127,15 @@ int main()
         endfit = 0.0;
         bestfit = 0.0;
 
+        printf("Started PSO Optimization \n");
         // Do 10 runs and send the best controller found to the robot
-        for (j = 0; j < 10; j++)
+        for (j = 0; j < PSO_N_RESTART; j++)
         {
-            printf("Started PSO Optimization \n");
+            printf("  New PSO Optimisation started (%d / %d)\n", j+1, PSO_N_RESTART);
 
             // Get result of optimization
-            pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, ITS, DATASIZE, &fitness, weights);
+            pso(SWARMSIZE, NB, LWEIGHT, NBWEIGHT, VMAX, MININIT, MAXINIT, PSO_ITS, DATASIZE, &fitness, weights);
 
-            printf("GOT PSO\n");
 
             fit = 0.0;
             // Run FINALRUN tests and calculate average
@@ -164,7 +154,7 @@ int main()
                 copyParticle(bestw, weights);
             }
 
-            printf("Performance of the best solution: %.3f\n", fit);
+            printf("Performance of the best solution: %.4f\n", fit);
             endfit += fit / 10; // average over the 10 runs
         }
 
@@ -173,12 +163,18 @@ int main()
         printf("Average performance: %.3f\n", endfit);
 
         /* Send best controller to robots */
+        printf("BEST WEIGHTS\n");
+        buffer[0] = 2; // Send pso weights
+        buffer[1] = -1; // To all
 
         for (j = 0; j < DATASIZE; j++)
-            buffer[j] = bestw[j];
-        buffer[DATASIZE] = 1000000;
-
-        wb_emitter_send(emitter, (void *)buffer, (DATASIZE + 1) * sizeof(double));
+        {
+            buffer[j+2] = bestw[j];
+            printf("%f ", bestw[j]);
+        }
+        printf("\n");
+        
+        wb_emitter_send(emitter, (void *)buffer, (DATASIZE + 2) * sizeof(double));
 
         return 0;
     }
@@ -216,7 +212,6 @@ void random_pos()
     int i;
     for (i = 0; i < N_ROBOTS; i++)
     {
-        // Note: changer la rotation perd le robot qui ne peut pas se retrouver
         rot[i][0] = 0.0;
         rot[i][1] = 1.0;
         rot[i][2] = 0.0;
@@ -239,33 +234,82 @@ void random_pos()
 }
 
 
+void initial_pos()
+{
+    for (int i = 0; i < N_ROBOTS; i++)
+    {
+        rot[i][0] = 0.0;
+        rot[i][1] = 1.0;
+        rot[i][2] = 0.0;
+        rot[i][3] = INIT_POS[i].heading;
+
+        loc[i][0] = INIT_POS[i].x;
+        loc[i][1] = 0.0;
+        loc[i][2] = -INIT_POS[i].y;
+        
+        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robots[i], "rotation"), rot[i]);
+        wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robots[i], "translation"), loc[i]);
+        wb_supervisor_node_reset_physics(robots[i]); // Set velocities and acceleration to 0 - Useful in case the robots fell
+    } 
+}
+
+
+void random_goal(position_t new_migr[N_FLOCKING_GROUP])
+{
+    for (int i = 0; i < N_FLOCKING_GROUP; i++)
+    {
+        new_migr[i].x = randIn(-ARENA_SIZE_X / 2.0, ARENA_SIZE_X / 2.0);
+        new_migr[i].y = randIn(-ARENA_SIZE_Y / 2.0, ARENA_SIZE_Y / 2.0);
+    }
+}
+
+
 double fitness(double weights[DATASIZE])
 {
     double buffer[255];
+    position_t new_migr[N_FLOCKING_GROUP];
 
-    /* Position all robots around one random spot */
+    /* Position all robots and goal */
 
-    random_pos();  //TODO: Random pose only in world 1 - in world 2 put them back to init_pos
-    // TODO: set migratory goal randomly
+    if (PSO_RAND_MIGRPOS)  // [only in world 1]
+    {
+        random_pos();  // Position roboty around one random spot // TODO: Handle only one group (ok for world 1)
+        random_goal(new_migr); // Set migratory goal randomly  [only in world 1] // TODO: Handle only one group (ok for world 1)
+    }
+    else  // [in world 2]
+        initial_pos(); // Put robot back to their initial position
 
+    /*
+    Messages: always sending double[],
+    - First value is message_type:
+     - 0 for robot sending localization,
+     - 1 for robot sending ping,
+     - 2 for supervisor sending pso weights,
+     - 3 for supervisor sending position,
+     - 4 for supervisor updating MIGR
+    - Second value is recipient id, using -1 = all
+    */
 
     /* Send pso weights to robots */
-
     buffer[0] = 2;
     buffer[1] = -1;
 
     for (int i = 0; i < DATASIZE; i++)
         buffer[i+2] = weights[i];
 
-    // printf("Sending new weights: \n");
-    // for (int i = 0; i < DATASIZE; i++)
-    //     printf("%f - ", weights[i]);
-    // printf("\n");
-
-    // Message: always sending double[],
-    // First value is: 0 for robot sending localization, 1 for robot sending ping, 2 for supervisor sending pso weights, 3 for supervisor sending position
-    // Second value is recipient id: -1 = all
     wb_emitter_send(emitter, (void *)buffer, (2 + DATASIZE) * sizeof(double));
+
+
+    /* Send MIGR to robots */
+    // Note: If we were to randomise goal for multi group, we need changes here.
+    if (PSO_RAND_MIGRPOS) { 
+        buffer[0] = 4;
+        buffer[1] = -1;
+        buffer[2] = new_migr[0].x; // For now, just send first new goal
+        buffer[3] = new_migr[0].y;
+
+        wb_emitter_send(emitter, (void *)buffer, (2 + 2) * sizeof(double));
+    }
 
 
     /* Send their new position to robots */
@@ -287,8 +331,12 @@ double fitness(double weights[DATASIZE])
     /* Compute the metric */
 
     reset_metric();
-    bool running = true;
+    if (TASK == 1)
+        metric_set_dflock(weights[3]); // A bit ugly (should use global indices)
+    if (PSO_RAND_MIGRPOS)
+        metric_set_migr(new_migr);
 
+    bool running = true;
     while (running)
     {
         get_absolute_position();

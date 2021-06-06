@@ -1,16 +1,29 @@
 #include <math.h>
 #include "struct.h"
 
-#define TASK 2   // TASK: 0 is localization, 1 is flocking, 2 is formation control
+#define TASK 1   // TASK: 0 is localization, 1 is flocking, 2 is formation control
 #define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing
 #define TRAJECTORY 1 // Tractectory used if task is localization
 
 // PSO 
-#define PSO false
+#define PSO true
 #define ARENA_SIZE_X 5 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
 #define ARENA_SIZE_Y 3 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
-#define FIT_T 20       // Time of simulation to run for fitness during optimization
-#define SWARMSIZE 10 
+
+
+/* PSO definitions */
+#define PSO_N_RESTART 10       // Number of PSO restart
+#define PSO_ITS 2 // 20         // Number of PSO iterations to run
+#define PSO_FIT_T 2       // Time of simulation to run for fitness during optimization
+#define SWARMSIZE 5 // 10 
+#define NB 1          // Number of neighbors on each side
+#define LWEIGHT 2.0   // Weight of attraction to personal best
+#define NBWEIGHT 2.0  // Weight of attraction to neighborhood best
+#define VMAX 1.0      // Maximum velocity particle can attain
+#define MININIT 0.0   // Lower bound on initialization value
+#define MAXINIT 1.0   // Upper bound on initialization value
+
+
 
 #if TASK == 0  // if localization then...
     #define DATASIZE 0
@@ -21,19 +34,22 @@
 #endif
 
 
-
+// These variables are mostly useless for WORLD 0 but need to be defined
 #if WORLD == 0
     #define N_ROBOTS 1
     #define FLOCK_SIZE 1
     #define TIME_IN_OBSTACLE_AVOIDANCE 0
+    #define PSO_RAND_MIGRPOS 0
 #elif WORLD == 1
     #define N_ROBOTS 5
     #define FLOCK_SIZE 5
     #define TIME_IN_OBSTACLE_AVOIDANCE 2
+    #define PSO_RAND_MIGRPOS 1
 #elif WORLD == 2
     #define N_ROBOTS 10
     #define FLOCK_SIZE 5
     #define TIME_IN_OBSTACLE_AVOIDANCE 1
+    #define PSO_RAND_MIGRPOS 0
 #endif
 
 
@@ -55,6 +71,7 @@
 #define VERBOSE_ACC false    	// Print odometry values computed with accelerometer
 #define VERBOSE_GPS false    	// Print odometry values computed with accelerometer
 #define VERBOSE_KALMAN false
+#define VERBOSE_MESSAGING false
 
 #define SUPERVISOR_VERBOSE_METRIC false // print error on each timestep
 #define SUPERVISOR_VERBOSE_POSITION false // print position on each timestep
@@ -78,11 +95,11 @@ extern const float FORM_REL_POS[5][2];
 // #define COHESION_WEIGHT 0.15
 // #define MIGRATION_WEIGHT 0.2
 // #define DISPERSION_WEIGHT 0.4
-// #define DISPERSION_THRESHOLD 0.2
+// #define DISPERSION_THRESHOLD 0.2 // 0.3 for W2
 // #define SPEED_MOMENTUM 0.2
 
-#define COHESION_NORMALISATION 0  // also try with: (DISPERSION_THRESHOLD*2)
-// #define COHESION_NORMALISATION (DISPERSION_THRESHOLD*2)
+// #define COHESION_NORMALISATION 0  // also try with: (DISPERSION_THRESHOLD*2)
+#define COHESION_NORMALISATION (DISPERSION_THRESHOLD*2)
 
 
 #define D_FLOCK DISPERSION_THRESHOLD    // Targeted flocking distance // TODO:

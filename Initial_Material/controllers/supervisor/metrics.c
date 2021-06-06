@@ -10,9 +10,8 @@ double metric[N_FLOCKING_GROUP];
 long metric_stepcount[N_FLOCKING_GROUP];
 static float prev_center[N_FLOCKING_GROUP][2];
 
-
-double d_flock = D_FLOCK; //TODO: ! constants changing with PSO
-//TODO: ! Not handling groups
+double d_flock = D_FLOCK;
+position_t migrs[N_FLOCKING_GROUP] = {};
 
 
 int update_localization_metric(float loc_abs[N_ROBOTS][3], float loc_est[N_ROBOTS][3])
@@ -50,7 +49,7 @@ int update_flocking_metric_group(float loc_abs[N_ROBOTS][3], int group)
     int index_shift = group * FLOCK_SIZE;
 
     double time = wb_robot_get_time() - start_time; // SECONDS
-    float flock_center[2] = {0., 0.}, migr[2] = {MIGR[group].x, MIGR[group].y};
+    float flock_center[2] = {0., 0.}, migr[2] = {migrs[group].x, migrs[group].y};
     float *prev_group_center = prev_center[group];
     bool ended;
 
@@ -68,7 +67,7 @@ int update_flocking_metric_group(float loc_abs[N_ROBOTS][3], int group)
         memcpy(prev_group_center, flock_center, sizeof(flock_center));
 
     // Compute distance to goal
-    ended = PSO ? (time >= FIT_T) : (dist(flock_center, migr) < GOAL_FINAL_RANGE);
+    ended = PSO ? (time >= PSO_FIT_T) : (dist(flock_center, migr) < GOAL_FINAL_RANGE);
 
     // If end criterion is reached, return
     if (ended)
@@ -94,7 +93,7 @@ int update_flocking_metric_group(float loc_abs[N_ROBOTS][3], int group)
 
             // Second part of distance measure for each pair of robots
             dist_diff = dist(loc_abs[i], loc_abs[j]);
-            fit_d2 += fminf(dist_diff / D_FLOCK, 1 / powf(1 - D_FLOCK + dist_diff, 2));
+            fit_d2 += fminf(dist_diff / d_flock, 1 / powf(1 - d_flock + dist_diff, 2));
         }
     }
 
@@ -149,13 +148,13 @@ int update_formation_metric_group(float loc_abs[N_ROBOTS][3], int group)
     int leader_id = index_shift + LEADER_ID;
 
     double time = wb_robot_get_time() - start_time; // SECONDS
-    float formation_center[2] = {0., 0.}, migr[2] = {MIGR[group].x, MIGR[group].y};
+    float formation_center[2] = {0., 0.}, migr[2] = {migrs[group].x, migrs[group].y};
     float *prev_group_center = prev_center[group];
     bool ended;
 
 
     // Compute distance to goal
-    ended = PSO ? (time >= FIT_T) : (dist(loc_abs[leader_id], migr) < GOAL_FINAL_RANGE);
+    ended = PSO ? (time >= PSO_FIT_T) : (dist(loc_abs[leader_id], migr) < GOAL_FINAL_RANGE);
 
     // If end criterion is reached, return
     if (ended)
@@ -252,9 +251,24 @@ void reset_metric() {
         metric[i] = 0;
         metric_stepcount[i] = 0;
         prev_center[i][0] = 0;
-        prev_center[i][1] = 0;    
+        prev_center[i][1] = 0;
+        memcpy(&(migrs[i]), &(MIGR[i]), sizeof(MIGR[i]));
     }
 }
+
+
+void metric_set_dflock(double new_d_flock)
+{
+    d_flock = new_d_flock;
+}
+
+
+void metric_set_migr(position_t new_migr[N_FLOCKING_GROUP])
+{
+    for (int i = 0; i < N_FLOCKING_GROUP; i++)
+        memcpy(&(migrs[i]), &(new_migr[i]), sizeof(new_migr[i]));
+}
+
 
 
 // HELPER FUNCTIONS

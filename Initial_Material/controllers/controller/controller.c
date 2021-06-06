@@ -48,7 +48,7 @@ int flocking_group;
 const position_t zero_pos = {0, 0, 0};
 position_t previous_reynolds = {0, 0, 0};
 static position_t flock_prev_rpos[N_ROBOTS], flock_rpos[N_ROBOTS];
-
+position_t migr;
 
 static measurement_t meas;
 static position_t pos, speed;
@@ -131,6 +131,9 @@ void init_variables()
     migration_w = MIGRATION_WEIGHT;
     dispersion_t = DISPERSION_THRESHOLD;
     speed_momentum = SPEED_MOMENTUM;
+
+    // Initialize migration goal
+    memcpy(&migr, &(MIGR[flocking_group]), sizeof(MIGR[flocking_group]));
 }
 
 
@@ -174,23 +177,37 @@ void clamp(float *number, float limit)
 }
 
 
-void rescale(float *number_1, float *number_2, float limit)
+void rescale_old(float *number_1, float *number_2, float limit)
 {
 	float max_num = fmax(*number_1, *number_2);
 	float min_num = fmin(*number_1, *number_2);
 
     if (max_num > -min_num) {
-        if (max_num > limit || robot_flock_id != LEADER_ID) { //TODO: Remove second part
+        if (max_num > limit) {
             *number_1 -= (max_num - limit);
             *number_2 -= (max_num - limit);
         }
     }
     else
     {
-         if (min_num < -limit || robot_flock_id != LEADER_ID) { //TODO: Remove second part
+         if (min_num < -limit) {
             *number_1 -= (min_num + limit);
             *number_2 -= (min_num + limit);
         }
+    }
+
+    clamp(number_1, limit);
+    clamp(number_2, limit);
+}
+
+
+void rescale(float *number_1, float *number_2, float limit)
+{
+	float max_num = fmax(*number_1, *number_2);
+
+    if (max_num > limit) {
+        *number_1 = (*number_1 + limit) * (2 * limit) / (max_num + limit) - limit;
+        *number_2 = (*number_2 + limit) * (2 * limit) / (max_num + limit) - limit;
     }
 
     clamp(number_1, limit);
@@ -233,7 +250,8 @@ void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy, bool use_r
     // Compute forward control
     float u = Ku * cosf(bearing);
     if (use_range)
-        u *= range * 5;
+        u *= range * 10;
+        // u *= range * 5;
         // u *= range * 3;
 
     // Compute rotational control
@@ -274,7 +292,6 @@ void braitenberg(float* msl, float* msr)
 
 void reynolds(float* msl, float* msr)
 {
-    position_t migr = {MIGR[flocking_group].x, MIGR[flocking_group].y, 0};
 	position_t flock_pos_avg = {0, 0, 0};	 // Flock average positions
 	position_t flock_rpos_avg = {0, 0, 0};	 // Flock average positions
 	position_t dispersion = {0, 0, 0}, cohesion = {0, 0, 0}, migration = {0, 0, 0};	 // Flock average positions
@@ -318,8 +335,8 @@ void reynolds(float* msl, float* msr)
 
     // Migration
     norm = dist_pos(migr, pos) + EPS;
-    migration.x = (MIGR[flocking_group].x - pos.x) / norm;
-    migration.y = (MIGR[flocking_group].y - pos.y) / norm;
+    migration.x = (migr.x - pos.x) / norm;
+    migration.y = (migr.y - pos.y) / norm;
 
 
     // Aggregate
@@ -348,7 +365,7 @@ void leader_follower_basic(float* msl, float* msr)
 {
     // If leader
     if (robot_flock_id == LEADER_ID) {
-        vector_to_wheelspeed(msl, msr, MIGR[flocking_group].x - pos.x, MIGR[flocking_group].y - pos.y, false);
+        vector_to_wheelspeed(msl, msr, migr.x - pos.x, migr.y - pos.y, false);
         return;
     }
     
@@ -361,7 +378,7 @@ void leader_follower_positioned(float* msl, float* msr)
 {
     // If leader
     if (robot_flock_id == LEADER_ID) {
-        vector_to_wheelspeed(msl, msr, MIGR[flocking_group].x - pos.x, MIGR[flocking_group].y - pos.y, false);
+        vector_to_wheelspeed(msl, msr, migr.x - pos.x, migr.y - pos.y, false);
         return;
     }
     
@@ -451,7 +468,7 @@ void process_ping_messages(double* buffer)
 
 void receive_messages()
 {
-    // Buffer to receive the sender id
+    // Buffer to receive data
     double *inbuffer;
     int message_type, recipient_id;
 
@@ -481,7 +498,8 @@ void receive_messages()
             for (int i = 0; i < DATASIZE; i++)
                 pso_weights[i] = inbuffer[i + 2];
             new_weights = true;
-            printf("R%d: Receiving pso weights\n", robot_id);
+            if (VERBOSE_MESSAGING)
+                printf("R%d: Receiving pso weights\n", robot_id);
         }
         else if (message_type == 3)
         {
@@ -489,7 +507,16 @@ void receive_messages()
             pos.x = inbuffer[2];
             pos.y = inbuffer[3];
             pos.heading = inbuffer[4];
-            printf("R%d: Receiving new position (%g, %g)\n", robot_id, pos.x, pos.y);
+            if (VERBOSE_MESSAGING)
+                printf("R%d: Receiving new position (%g, %g)\n", robot_id, pos.x, pos.y);
+        }
+        else if (message_type == 4)
+        {
+            // Supervisor is sending new migration goal
+            migr.x = inbuffer[2];
+            migr.y = inbuffer[3];
+            if (VERBOSE_MESSAGING)
+                printf("R%d: Receiving new migration goal (%g, %g)\n", robot_id, migr.x, migr.y);
         }
         else
             printf("Warning: Flockform controller should not receive this message\n");
@@ -501,17 +528,19 @@ void receive_messages()
 
 void set_robot_weights() {
 
-    printf("R%d: Setting new weights: \n", robot_id);
-    for (int i=0; i<DATASIZE; i++)
-        printf("%f - ", pso_weights[i]);
-    printf("\n");
+    if (robot_id == 10) {
+        printf("R%d: Setting new weights: \n", robot_id);
+        for (int i=0; i<DATASIZE; i++)
+            printf("%f - ", pso_weights[i]);
+        printf("\n");
+    }
 
     if (TASK == 1)
     {
         dispersion_w = pso_weights[0];
         cohesion_w = pso_weights[1];
         migration_w = pso_weights[2];
-        dispersion_t = pso_weights[3];
+        dispersion_t = pso_weights[3]; // If order here changes, update index in metric_set_dflock([]) in function fitness in pso_supervisor.c 
         speed_momentum = pso_weights[4];
     }
     else if (TASK == 2)
@@ -629,7 +658,7 @@ int main()
         }
         else if (abs(braiten_msl) + abs(braiten_msr) > 350)
         {
-            printf("Start obstacle avoidance\n");
+            // printf("Start obstacle avoidance\n");
             last_obstacle_avoidance = time_now_s;
             msl = braiten_msl + BIAS_SPEED;
             msr = braiten_msr + BIAS_SPEED;

@@ -65,9 +65,9 @@ void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax
                 neighbors[i][j] = 1;
             else
                 neighbors[i][j] = 0;
-            printf("%d ", neighbors[i][j]);
+            // printf("%d ", neighbors[i][j]);
         }
-        printf(" (%d)\n", i);
+        // printf(" (%d)\n", i);
     }
 
     // Initialize the swarm
@@ -81,6 +81,10 @@ void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax
             v[i][j] = randIn(-vmax, vmax);  // Random initial velocity
         }
     }
+
+
+    if (VERBOSE)
+        printf("[PSO] Initialisation\n");
 
     // Best performances are initially current performances
     findPerformance(swarm, perf, NULL, EVOLVE, neighbors);
@@ -98,9 +102,8 @@ void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax
     for (k = 0; k < iterations; k++)
     {
 
-        if (VERBOSE) {
-            printf("Iteration %d\n", k);
-        }
+        if (VERBOSE)
+            printf("[PSO] Iteration %d / %d\n", k, iterations);
 
         // Update preferences and generate new particles
         for (i = 0; i < swarmsize; i++)
@@ -126,7 +129,7 @@ void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax
         updateNBPerf(localBest, localBestPerf, nbBest, nbBestPerf, neighbors);
 
         if (VERBOSE) {
-            printf("Best performance of the iteration: %f\n", localBestPerf[argmax(localBestPerf, swarmsize)]);
+            printf("[PSO] Best performance of the iteration: %f\n", localBestPerf[argmax(localBestPerf, swarmsize)]);
         }
     }
 
@@ -135,8 +138,7 @@ void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax
     bestPerf = bestInSwarm(localBest, localBestPerf, best);
 
     if (VERBOSE) {
-        printf("### Best performance found ###\n");
-        printf("Performance over %d iterations: %f\n", iterations, bestPerf);
+        printf("[PSO] Best Performance over %d iterations: %f\n", iterations, bestPerf);
     }
 }
 
