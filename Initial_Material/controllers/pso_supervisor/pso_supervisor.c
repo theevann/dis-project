@@ -32,15 +32,15 @@
 #define RADIUS 0.8
 
 
-WbNodeRef robots[ROBOTS_N];
-WbFieldRef rob_trans[ROBOTS_N];    // Robots translation fields
-WbFieldRef rob_rotation[ROBOTS_N]; // Robots rotation fields
+WbNodeRef robots[N_ROBOTS];
+WbFieldRef rob_trans[N_ROBOTS];    // Robots translation fields
+WbFieldRef rob_rotation[N_ROBOTS]; // Robots rotation fields
 
 WbDeviceTag emitter;
 WbDeviceTag receiver;
-float loc_abs[ROBOTS_N][3];
-double *loc[ROBOTS_N];
-double *rot[ROBOTS_N];
+float loc_abs[N_ROBOTS][3];
+double *loc[N_ROBOTS];
+double *rot[N_ROBOTS];
 
 static int time_step;
 
@@ -68,11 +68,11 @@ void init_super()
     emitter = wb_robot_get_device("emitter");   
     
 
-    if (ROBOTS_N > 10)
+    if (N_ROBOTS > 10)
         printf("==== ERROR ====\n More than 10 ROBOTS");
 
     char robot_name[7];
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         sprintf(robot_name, "epuck%d", i);
         // printf("Robot name %s \n", robot_name);
@@ -88,7 +88,7 @@ void init_super()
 
 void get_absolute_position()
 {
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         loc_abs[i][0] = wb_supervisor_field_get_sf_vec3f(rob_trans[i])[0];       // X
         loc_abs[i][1] = -wb_supervisor_field_get_sf_vec3f(rob_trans[i])[2];      // Z
@@ -188,7 +188,7 @@ int main()
 // Makes sure no robots are overlapping        // TODO: add verification that there is no obstacle there
 char valid_locs(int rob_id, int *j)
 {
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         if (rob_id == i)
             continue;
@@ -214,7 +214,7 @@ void random_pos()
     leader_pos[1] = randIn(-ARENA_SIZE_Y / 2.0, ARENA_SIZE_Y / 2.0);
 
     int i;
-    for (i = 0; i < ROBOTS_N; i++)
+    for (i = 0; i < N_ROBOTS; i++)
     {
         // Note: changer la rotation perd le robot qui ne peut pas se retrouver
         rot[i][0] = 0.0;
@@ -270,7 +270,7 @@ double fitness(double weights[DATASIZE])
 
     /* Send their new position to robots */
 
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         buffer[0] = 3;
         buffer[1] = i;

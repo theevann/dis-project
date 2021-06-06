@@ -23,16 +23,16 @@
 // #include "../localization/odometry.h"
 
 
-WbNodeRef rob[ROBOTS_N];           // Robot node
-WbFieldRef rob_trans[ROBOTS_N];    // Robots translation fields
-WbFieldRef rob_rotation[ROBOTS_N]; // Robots rotation fields
+WbNodeRef rob[N_ROBOTS];           // Robot node
+WbFieldRef rob_trans[N_ROBOTS];    // Robots translation fields
+WbFieldRef rob_rotation[N_ROBOTS]; // Robots rotation fields
 WbDeviceTag receiver;              // Receiver for robot positions
 WbDeviceTag emitter;               // Emitter for PSO supervisor
 
 
 // Localization
-float loc_abs[ROBOTS_N][3]; // Absolute Location of the robot
-float loc_est[ROBOTS_N][3]; // Estimated position
+float loc_abs[N_ROBOTS][3]; // Absolute Location of the robot
+float loc_est[N_ROBOTS][3]; // Estimated position
 
 static int time_step;
 
@@ -51,11 +51,11 @@ void init_super(void)
         printf("Missing receiver in supervisor\n");
     wb_receiver_enable(receiver, time_step);
 
-    emitter = wb_robot_get_device("emitter");   
+    // emitter = wb_robot_get_device("emitter");   
     
 
     char rob_name[7];
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         sprintf(rob_name, "epuck%d", i);
         // printf("Robot name %s \n", rob_name);
@@ -73,7 +73,7 @@ void init_super(void)
 void get_absolute_position(void)
 {
     // Get data
-    for (int i = 0; i < ROBOTS_N; i++)
+    for (int i = 0; i < N_ROBOTS; i++)
     {
         loc_abs[i][0] = wb_supervisor_field_get_sf_vec3f(rob_trans[i])[0];       // X
         loc_abs[i][1] = -wb_supervisor_field_get_sf_vec3f(rob_trans[i])[2];      // Z
@@ -97,7 +97,7 @@ void get_info(void)
     float rob_x, rob_z, rob_theta;
     char *inbuffer;
 
-    while (wb_receiver_get_queue_length(receiver) > 0 && count < ROBOTS_N)
+    while (wb_receiver_get_queue_length(receiver) > 0 && count < N_ROBOTS)
     {
         inbuffer = (char *)wb_receiver_get_data(receiver);
         sscanf(inbuffer, "%d#%f#%f#%f", &rob_nb, &rob_x, &rob_z, &rob_theta);
@@ -133,6 +133,7 @@ void update_metric(int task)
 int main(void)
 {
     init_super();
+    reset_metric();
 
     while (1)
     {

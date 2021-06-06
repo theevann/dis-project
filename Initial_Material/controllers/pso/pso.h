@@ -1,12 +1,6 @@
 #include "../const.h"
 
-#if TASK == 1 // if flocking then...
-    #define DATASIZE 5  
-#elif TASK == 2 // if formation them...
-    #define DATASIZE 0
-#endif
 
-#define SWARMSIZE 10 
 
 // Functions
 void pso(int n_swarmsize, int n_nb, double lweight, double nbweight, double vmax, double min, double max, int iterations, int n_datasize, double (*fitness_ptr)(double[]), double best[]);
