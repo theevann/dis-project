@@ -25,7 +25,7 @@ const float FORM_REL_POS[5][2] = {
     {0.2, 0.2}
 };
 #elif WORLD == 2
-const position_t MIGR[] = {{-1.9, 0, 0}, {-0.1, 0, 0}};
+const position_t MIGR[] = {{-1.8, 0, 0}, {-0.2, 0, 0}};
 const position_t INIT_POS[] = {
     {-0.1, 0, M_PI / 2},
     {-0.1, 0.1, M_PI / 2},

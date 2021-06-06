@@ -6,6 +6,7 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
+  coordinateSystem "NUE"
 }
 Viewpoint {
   orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
