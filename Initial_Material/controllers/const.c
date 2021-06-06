@@ -1,6 +1,14 @@
 #include "const.h"
 
-#if WORLD == 1
+#if WORLD == 0
+const position_t MIGR[1];
+const position_t INIT_POS[1] = {
+    {-2.9, 0., -M_PI / 2}
+};
+const float FORM_REL_POS[1][2] = {
+    {0., 0.},
+};
+#elif WORLD == 1
 const position_t MIGR[] = {{2., 0.5, 0}};
 const position_t INIT_POS[] = {
     {-2.9, 0., -M_PI / 2},
@@ -8,6 +16,13 @@ const position_t INIT_POS[] = {
     {-2.9, 0.1, -M_PI / 2},
     {-2.9, -0.2, -M_PI / 2},
     {-2.9, 0.2, -M_PI / 2},
+};
+const float FORM_REL_POS[5][2] = {
+    {0., 0.},
+    {-0.2, -0.2},
+    {-0.2, 0.2},
+    {0.2, -0.2},
+    {0.2, 0.2}
 };
 #elif WORLD == 2
 const position_t MIGR[] = {{-1.9, 0, 0}, {-0.1, 0, 0}};
@@ -23,15 +38,16 @@ const position_t INIT_POS[] = {
     {-1.9, 0.2, -M_PI / 2},
     {-1.9, -0.2, -M_PI / 2},
 };
-#endif
-
 const float FORM_REL_POS[5][2] = {
     {0., 0.},
-    {-0.2, -0.2},
     {-0.2, 0.2},
-    {0.2, -0.2},
-    {0.2, 0.2}
+    {-0.2, -0.2},
+    {0.2, 0.2},
+    {0.2, -0.2}
 };
+#endif
+
+
 
 // static const float FORM_REL_POS[5][2] = {
 //     {0., 0.},
