@@ -12,10 +12,10 @@
 
 
 /* PSO definitions */
-#define PSO_N_RESTART 10       // Number of PSO restart
-#define PSO_ITS 2 // 20         // Number of PSO iterations to run
-#define PSO_FIT_T 2       // Time of simulation to run for fitness during optimization
-#define SWARMSIZE 5 // 10 
+#define PSO_N_RESTART 5       // Number of PSO restart
+#define PSO_ITS 20         // Number of PSO iterations to run
+#define PSO_FIT_T 20       // Time of simulation to run for fitness during optimization
+#define SWARMSIZE 5 
 #define NB 1          // Number of neighbors on each side
 #define LWEIGHT 2.0   // Weight of attraction to personal best
 #define NBWEIGHT 2.0  // Weight of attraction to neighborhood best
