@@ -20,6 +20,7 @@ int update_localization_metric(float loc_abs[N_ROBOTS][3], float loc_est[N_ROBOT
     bool ended;
 
     //TODO: Take into account start time (eg accelerometer calibration ?)
+    if (TRAJECTORY == 0) ended = time > 100;
     if (TRAJECTORY == 1) ended = time > 115;
     if (TRAJECTORY == 2) ended = time > 107;
 
@@ -28,11 +29,12 @@ int update_localization_metric(float loc_abs[N_ROBOTS][3], float loc_est[N_ROBOT
     {
         for (int i = 0; i < N_ROBOTS; i++)
         {
-            metric[0] += dist(loc_abs[i], loc_est[i]);
+            metric[0] += dist(loc_abs[i], loc_est[i]) / N_ROBOTS;
 
             if (SUPERVISOR_VERBOSE_METRIC)
                 printf("Localization error robot%d: %f\n", i, dist(loc_abs[i], loc_est[i]));
         }
+        metric_stepcount[0]++;
     }
     else if (!saved)
     {
@@ -228,12 +230,11 @@ int update_formation_metric(float loc_abs[N_ROBOTS][3])
 
 
 double get_metric() {
-    double final_metric = 0, normalizer;
+    double final_metric = 0;
 
     for (int i = 0; i < N_FLOCKING_GROUP; i++)
     {
-        normalizer = TASK == 0 ? N_ROBOTS : metric_stepcount[i];
-        final_metric += metric[i] / normalizer;
+        final_metric += metric[i] / metric_stepcount[i];
     }
 
     // Do some sanity check on current configuration

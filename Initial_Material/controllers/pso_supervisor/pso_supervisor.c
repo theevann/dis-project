@@ -5,20 +5,11 @@
 #include <webots/supervisor.h>
 #include <webots/robot.h>
 
-#include "../const.h" // TODO: put definitions in const.h file
+#include "../const.h"
 #include "../supervisor/metrics.h"
 #include "../pso/pso.h"
 
 
-/* Neighborhood types */
-#define STANDARD -1
-#define RAND_NB 0
-#define NCLOSE_NB 1
-#define FIXEDRAD_NB 2
-#define NEIGHBORHOOD STANDARD // TODO: do or delete
-
-
-#define FINALRUNS 5
 #define RADIUS 0.8
 
 
@@ -139,12 +130,12 @@ int main()
 
             fit = 0.0;
             // Run FINALRUN tests and calculate average
-            for (i = 0; i < FINALRUNS; i++)
+            for (i = 0; i < PSO_FINALRUNS; i++)
             {
                 f = fitness(weights);
                 fit += f;
             }
-            fit /= FINALRUNS;
+            fit /= PSO_FINALRUNS;
 
 
             // Check for new best fitness
@@ -273,7 +264,7 @@ double fitness(double weights[DATASIZE])
 
     if (PSO_RAND_MIGRPOS)  // [only in world 1]
     {
-        random_pos();  // Position roboty around one random spot // TODO: Handle only one group (ok for world 1)
+        random_pos();  // Position robot around one random spot // TODO: Handle only one group (ok for world 1)
         random_goal(new_migr); // Set migratory goal randomly  [only in world 1] // TODO: Handle only one group (ok for world 1)
     }
     else  // [in world 2]

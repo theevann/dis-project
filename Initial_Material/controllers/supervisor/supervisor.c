@@ -63,10 +63,6 @@ void init_super(void)
         rob_trans[i] = wb_supervisor_node_get_field(rob[i], "translation");
         rob_rotation[i] = wb_supervisor_node_get_field(rob[i], "rotation");
     }
-
-
-    // Find termination crit
-    // Find if traj 1 or 2 and if goal reached in flocking or formation
 }
 
 

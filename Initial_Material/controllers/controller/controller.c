@@ -171,6 +171,13 @@ void init_devices()
 }
 
 
+// Generate random number in [vmin,vmax]
+double randIn(double vmin, double vmax)
+{
+    return vmin + (vmax - vmin) * ((double)rand()) / ((double)RAND_MAX);
+}
+
+
 void clamp(float *number, float limit)
 {
 	*number = (*number > limit) ? limit : (*number < -limit) ? -limit : *number;
@@ -250,8 +257,8 @@ void vector_to_wheelspeed(float *msl, float *msr, float vx, float vy, bool use_r
     // Compute forward control
     float u = Ku * cosf(bearing);
     if (use_range)
-        u *= range * 10;
-        // u *= range * 5;
+        u *= range * 5;
+        // u *= range * 10;
         // u *= range * 3;
 
     // Compute rotational control
@@ -631,7 +638,7 @@ int main()
 
 
         // IF LOCALISATION TASK SET WHEEL MOTOR SPEED TO FOLLOW TRAJECTORIES
-        if (TASK == 0)
+        if (TASK == 0 && TRAJECTORY > 0)
         {
             if (TRAJECTORY == 1)
                 trajectory_1(dev_left_motor, dev_right_motor, ACC_CAL);
@@ -662,6 +669,12 @@ int main()
             last_obstacle_avoidance = time_now_s;
             msl = braiten_msl + BIAS_SPEED;
             msr = braiten_msr + BIAS_SPEED;
+        }
+        else if (TASK == 0)
+        {
+            reynolds(&group_motion_msl, &group_motion_msr);
+            msl = braiten_msl + randIn(0, BIAS_SPEED);
+            msr = braiten_msr + randIn(0, BIAS_SPEED);
         }
         else if (TASK == 1)
         {

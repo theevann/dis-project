@@ -19,14 +19,13 @@ void init_odometry(int time_step)
 void calibrate_acc(double* acc, double* acc_mean) 
 {    
     double time_now_s = wb_robot_get_time();
-	printf("\ntimenow: %g\n", time_now_s);
     if (time_now_s > 0.1) {
         acc_cal_tsum += 1;
         acc_mean_sum[0] += acc[0]; 
         acc_mean_sum[1] += acc[1]; 
         acc_mean[0] = acc_mean_sum[0] / acc_cal_tsum;
         acc_mean[1] = acc_mean_sum[1] / acc_cal_tsum;
-        printf("Acc mean: %g %g %g\n", acc_mean[0], acc_mean[1], acc_mean[2]);
+        // printf("Acc mean: %g %g %g\n", acc_mean[0], acc_mean[1], acc_mean[2]);
     }
 }
 

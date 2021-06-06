@@ -2,20 +2,21 @@
 #include "struct.h"
 
 #define TASK 1   // TASK: 0 is localization, 1 is flocking, 2 is formation control
-#define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing
-#define TRAJECTORY 1 // Tractectory used if task is localization
+#define WORLD 1  // WORLD: 0 is localization, 1 is obstacles, 2 is crossing, 4 is test_crossing
+#define TRAJECTORY 0 // Tractectory used if task is localization
 
 // PSO 
-#define PSO true
+#define PSO false
 #define ARENA_SIZE_X 5 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
 #define ARENA_SIZE_Y 3 // ARENA IS A BIT BIGGER BUT THEN ROBOT MIGHT BE PLACED OUTSIDE !
 
 
 /* PSO definitions */
-#define PSO_N_RESTART 5       // Number of PSO restart
+#define PSO_N_RESTART 5    // Number of PSO restart
 #define PSO_ITS 20         // Number of PSO iterations to run
 #define PSO_FIT_T 20       // Time of simulation to run for fitness during optimization
-#define SWARMSIZE 5 
+#define SWARMSIZE 5
+#define PSO_FINALRUNS 5 // Final run on found best weights  
 #define NB 1          // Number of neighbors on each side
 #define LWEIGHT 2.0   // Weight of attraction to personal best
 #define NBWEIGHT 2.0  // Weight of attraction to neighborhood best
@@ -50,6 +51,11 @@
     #define FLOCK_SIZE 5
     #define TIME_IN_OBSTACLE_AVOIDANCE 1
     #define PSO_RAND_MIGRPOS 0
+#elif WORLD == 4
+    #define N_ROBOTS 10
+    #define FLOCK_SIZE 5
+    #define TIME_IN_OBSTACLE_AVOIDANCE 1
+    #define PSO_RAND_MIGRPOS 0
 #endif
 
 
@@ -71,7 +77,7 @@
 #define VERBOSE_ACC false    	// Print odometry values computed with accelerometer
 #define VERBOSE_GPS false    	// Print odometry values computed with accelerometer
 #define VERBOSE_KALMAN false
-#define VERBOSE_MESSAGING false
+#define VERBOSE_MESSAGING true
 
 #define SUPERVISOR_VERBOSE_METRIC false // print error on each timestep
 #define SUPERVISOR_VERBOSE_POSITION false // print position on each timestep
@@ -84,22 +90,22 @@ extern const position_t MIGR[];
 extern const position_t INIT_POS[];
 extern const float FORM_REL_POS[5][2];
 
-// KEEP TOGETHER WITH HIGHER INTERROBOT DISTANCE
-#define COHESION_WEIGHT 0.2
+// KEEP TOGETHER WITH HIGHER INTERROBOT DISTANCE (W1)
+// #define COHESION_WEIGHT 0.2
+// #define MIGRATION_WEIGHT 0.2
+// #define DISPERSION_WEIGHT 0.4
+// #define DISPERSION_THRESHOLD 0.2 // 0.3
+// #define SPEED_MOMENTUM 0.8
+
+// GOES FASTER TOWARD GOAL (W2)
+#define COHESION_WEIGHT 0.15
 #define MIGRATION_WEIGHT 0.2
 #define DISPERSION_WEIGHT 0.4
 #define DISPERSION_THRESHOLD 0.3
-#define SPEED_MOMENTUM 0.9
+#define SPEED_MOMENTUM 0.2
 
-// GOES FASTER TOWARD GOAL
-// #define COHESION_WEIGHT 0.15
-// #define MIGRATION_WEIGHT 0.2
-// #define DISPERSION_WEIGHT 0.4
-// #define DISPERSION_THRESHOLD 0.2 // 0.3 for W2
-// #define SPEED_MOMENTUM 0.2
-
-// #define COHESION_NORMALISATION 0  // also try with: (DISPERSION_THRESHOLD*2)
-#define COHESION_NORMALISATION (DISPERSION_THRESHOLD*2)
+#define COHESION_NORMALISATION 0  // also try with: (DISPERSION_THRESHOLD*2)
+// #define COHESION_NORMALISATION (DISPERSION_THRESHOLD*2)
 
 
 #define D_FLOCK DISPERSION_THRESHOLD    // Targeted flocking distance // TODO:
@@ -108,7 +114,7 @@ extern const float FORM_REL_POS[5][2];
 
 /* FORMATION */
 #define LEADER_ID 0
-#define D_MAX_FORM 0.1 // TODO: maximum distance travelled in 1 timestep: timestep * maximum speed
+#define D_MAX_FORM 0.13 // TODO: maximum distance travelled in 1 timestep: timestep * maximum speed
 
 
 /* MATH HELPER */
